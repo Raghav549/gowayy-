@@ -1,0 +1,63 @@
+plugins {
+    id "com.android.application"
+}
+
+def env = System.getenv()
+def appUrl = (project.findProperty("appUrl") ?: "https://gowayydlng.vercel.app/").toString().trim()
+if (!appUrl.endsWith("/")) appUrl += "/"
+def appHost = new URI(appUrl).host
+
+android {
+    namespace "in.gowayy.app"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "in.gowayy.app"
+        minSdk 24
+        targetSdk 35
+        // Every CI build gets a higher version code, so a new APK installs over the old one.
+        versionCode((env.GITHUB_RUN_NUMBER ?: "1").toInteger())
+        versionName "1.0.${env.GITHUB_RUN_NUMBER ?: "0"}"
+        resValue "string", "app_url", appUrl
+        resValue "string", "app_host", appHost
+        manifestPlaceholders = [appHost: appHost]
+    }
+
+    signingConfigs {
+        release {
+            // A private key from repository secrets when configured (see
+            // android/README.md); otherwise the bundled sideload key, which keeps
+            // the signature stable so updates install without uninstalling.
+            def ks = env.ANDROID_KEYSTORE_FILE
+            if (ks && file(ks).exists()) {
+                storeFile file(ks)
+                storePassword env.ANDROID_KEYSTORE_PASSWORD
+                keyAlias env.ANDROID_KEY_ALIAS
+                keyPassword env.ANDROID_KEY_PASSWORD ?: env.ANDROID_KEYSTORE_PASSWORD
+            } else {
+                storeFile rootProject.file("keystore/gowayy-sideload.p12")
+                storeType "pkcs12"
+                storePassword "gowayy-sideload"
+                keyAlias "gowayy"
+                keyPassword "gowayy-sideload"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
