@@ -248,7 +248,7 @@ input::-webkit-date-and-time-value {
   .offer-track {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: 91%;
+    grid-auto-columns: 92%;
     gap: 0.6rem;
     overflow-x: auto;
     overscroll-behavior-x: contain;
@@ -265,6 +265,22 @@ input::-webkit-date-and-time-value {
   @media (min-width: 640px) {
     .offer-track { grid-auto-columns: calc((100% - 3rem - 0.75rem) / 2); gap: 0.75rem; padding-left: 1.5rem; padding-right: 1.5rem; margin: 0 -1.5rem; scroll-padding-inline: 1.5rem; }
   }
+  /* The bottom bar's "All services" orb: a slowly turning neon ring with a soft glow. */
+  .more-orb { position: relative; isolation: isolate; }
+  .more-orb::before,
+  .more-orb::after {
+    content: "";
+    position: absolute;
+    inset: -2.5px;
+    z-index: -1;
+    border-radius: 9999px;
+    background: conic-gradient(#22d3ee, #a855f7, #ec4899, #f59e0b, #22d3ee);
+    animation: orbSpin 5s linear infinite;
+  }
+  .more-orb::after { inset: -1px; filter: blur(9px); opacity: 0.7; }
+  @keyframes orbSpin { to { transform: rotate(1turn); } }
+  @media (prefers-reduced-motion: reduce) { .more-orb::before, .more-orb::after { animation: none; } }
+
   /* mouse users can drag the rails sideways (see DragScroll) */
   .is-dragging { cursor: grabbing; scroll-snap-type: none !important; user-select: none; }
   .is-dragging a { pointer-events: none; }

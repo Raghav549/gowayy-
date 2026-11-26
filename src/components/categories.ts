@@ -17,11 +17,11 @@ const R = {
 };
 
 export const HOME_CATEGORIES: HomeCategory[] = [
-  { href: "/tours", label: "Tours", img: "/media/cat/tours.webp", ring: R.violet },
-  { href: "/cabs", label: "Cabs", img: "/media/cat/cabs.webp", ring: R.amber },
-  { href: "/hotels", label: "Stays", img: "/media/cat/stays.webp", ring: R.sky },
-  { href: "/grocery", label: "Grocery", img: "/media/cat/grocery.webp", ring: R.green },
-  { href: "/food", label: "Food", img: "/media/cat/food.webp", ring: R.orange },
+  { href: "/tours", label: "Tours", img: "/media/cat/neon/tours.webp", ring: R.violet },
+  { href: "/cabs", label: "Cabs", img: "/media/cat/neon/cabs.webp", ring: R.amber },
+  { href: "/hotels", label: "Stays", img: "/media/cat/neon/stays.webp", ring: R.sky },
+  { href: "/grocery", label: "Grocery", img: "/media/cat/neon/grocery.webp", ring: R.green },
+  { href: "/food", label: "Food", img: "/media/cat/neon/food.webp", ring: R.orange },
   { href: "/offers", label: "Best offers", img: "/media/cat/offers.webp", ring: R.violet },
   { href: "/food?cat=Pizza", label: "Pizzas", img: "/media/cat/pizza.webp", ring: R.amber },
   { href: "/food?q=spicy", label: "Spicy", img: "/media/cat/spicy.webp", ring: R.red },

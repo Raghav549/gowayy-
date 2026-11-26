@@ -207,8 +207,10 @@ export function BottomNav() {
             <Compass size={22} className={tone(1)} />
           </Link>
           <button onClick={() => setOpen(true)} aria-label="All services" aria-haspopup="dialog" className={cell}>
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand-400 via-brand-600 to-brand-800 text-white shadow-[0_6px_18px_-4px_rgba(124,58,237,0.75)] ring-1 ring-white/25 transition active:scale-90">
-              <LayoutGrid size={19} strokeWidth={2.2} />
+            <span className="more-orb grid h-11 w-11 place-items-center rounded-full transition active:scale-90">
+              <span className="grid h-full w-full place-items-center rounded-full bg-[radial-gradient(circle_at_30%_25%,#c084fc,#7c3aed_45%,#3b0764)] text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.45)]">
+                <LayoutGrid size={19} strokeWidth={2.3} className={`transition-transform duration-500 ${open ? "rotate-45 scale-90" : ""}`} />
+              </span>
             </span>
           </button>
           <Link href="/cart" aria-label="Bag" aria-current={idx === 3 ? "page" : undefined} className={cell}>
@@ -234,11 +236,11 @@ export function BottomNav() {
             </div>
             <div className="grid grid-cols-3 gap-x-3 gap-y-4">
               {SERVICES.map((s, i) => (
-                <Link key={s.href} href={s.href} style={{ "--i": i } as React.CSSProperties} className="anim-pop flex flex-col items-center gap-2 text-center transition active:scale-95">
-                  <span className={`grid h-16 w-16 place-items-center rounded-full bg-gradient-to-tr p-[2.5px] ${s.ring}`}>
-                    <span className="block h-full w-full overflow-hidden rounded-full bg-white p-[3px]">
+                <Link key={s.href} href={s.href} style={{ "--i": i } as React.CSSProperties} className="anim-pop group flex flex-col items-center gap-2 text-center transition active:scale-95">
+                  <span className={`grid h-[4.75rem] w-[4.75rem] place-items-center rounded-full bg-gradient-to-tr p-[3px] shadow-lg shadow-brand-600/20 transition group-hover:-translate-y-0.5 ${s.ring}`}>
+                    <span className="block h-full w-full overflow-hidden rounded-full bg-white p-[2.5px]">
                       {/* eslint-disable-next-line @next/next/no-img-element -- small pre-sized local webp */}
-                      <img src={s.img} alt="" width={120} height={120} decoding="async" draggable={false} className="h-full w-full rounded-full bg-brand-50 object-cover" />
+                      <img src={s.img} alt="" width={144} height={144} decoding="async" draggable={false} className="h-full w-full rounded-full bg-ink object-cover transition duration-500 group-hover:scale-110" />
                     </span>
                   </span>
                   <span className="text-sm font-bold">{s.label}</span>

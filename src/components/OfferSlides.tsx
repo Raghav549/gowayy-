@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import type { OfferSlide } from "@/lib/offers";
 
 const ADVANCE_MS = 4500;
@@ -70,31 +69,28 @@ export function OfferSlides({ slides, className = "" }: { slides: OfferSlide[]; 
           <Link
             key={s.key}
             href={s.href}
-            className="group relative isolate flex aspect-[16/10] min-h-[12.5rem] w-full min-w-0 flex-col justify-between overflow-hidden rounded-[28px] bg-brand-900 p-4 text-white outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:aspect-[2/1] sm:min-h-[14rem] sm:p-6 lg:min-h-[16rem]"
+            className="group relative isolate block aspect-[2/1] w-full min-w-0 overflow-hidden rounded-[24px] bg-[#123040] outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:rounded-[28px]"
           >
+            {/* Painted banner artwork carries the headline; live offer terms sit on top. */}
             {/* eslint-disable-next-line @next/next/no-img-element -- pre-sized local webp */}
             <img
               src={s.img}
+              srcSet={`${s.img.replace(/\.webp$/, "-960.webp")} 960w, ${s.img} 1456w`}
+              sizes="(min-width: 640px) 50vw, 92vw"
               alt=""
-              width={960}
-              height={480}
+              width={1456}
+              height={720}
               loading={i < 2 ? "eager" : "lazy"}
               fetchPriority={i === 0 ? "high" : undefined}
               decoding="async"
               draggable={false}
-              className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+              className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]"
             />
-            <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#14082e]/90 via-[#14082e]/40 to-[#14082e]/5" />
-            <span className="relative self-start rounded-full bg-white px-3 py-1.5 text-[12px] font-extrabold leading-none text-brand-700 sm:text-[13px]">{s.badge}</span>
-            <div className="relative flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="font-display line-clamp-2 break-words text-[clamp(1.3rem,6vw,1.9rem)] font-semibold leading-[1.08]">{s.title}</h3>
-                <p className="mt-1 line-clamp-2 break-words text-xs font-semibold text-white/85 sm:text-sm">{s.detail}</p>
-              </div>
-              <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/95 text-ink transition group-hover:translate-x-0.5">
-                <ArrowRight size={17} />
-              </span>
-            </div>
+            <span className={`absolute right-2.5 top-2.5 flex max-w-[62%] items-center gap-1.5 rounded-full bg-white/95 py-1 pl-2.5 text-[11px] font-extrabold leading-none text-ink shadow-lg shadow-black/20 sm:right-3.5 sm:top-3.5 sm:text-[13px] ${s.code ? "pr-1" : "pr-2.5"}`}>
+              <span className="truncate py-0.5">{s.badge}</span>
+              {s.code && <span className="shrink-0 rounded-full bg-brand-600 px-2 py-1 tracking-wide text-white">{s.code}</span>}
+            </span>
+            <span className="sr-only">{s.title}. {s.detail}</span>
           </Link>
         ))}
       </div>
