@@ -1,3 +1,4 @@
+import { and, eq, inArray } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { pool } from "@/db";
 import { CREATE_SCHEMA, SCHEMA_VERSION, UPGRADE_COLUMNS } from "@/db/schema-sql";
@@ -48,9 +49,11 @@ const META = `CREATE TABLE IF NOT EXISTS "_gowayy_meta" ("key" text PRIMARY KEY,
 async function isReady(): Promise<boolean> {
   try {
     const { rows } = await pool.query(
-      `select (select value from "_gowayy_meta" where key = 'schema') as v, exists(select 1 from destinations) as seeded`,
+      `select (select value from "_gowayy_meta" where key = 'schema') as v,
+              (select value from "_gowayy_meta" where key = 'catalog') as c,
+              exists(select 1 from destinations) as seeded`,
     );
-    return rows[0]?.v === SCHEMA_VERSION && rows[0]?.seeded === true;
+    return rows[0]?.v === SCHEMA_VERSION && rows[0]?.c === CATALOG_VERSION && rows[0]?.seeded === true;
   } catch {
     return false; // tables missing → full bootstrap
   }
@@ -72,10 +75,12 @@ async function run() {
     for (const q of UPGRADE_COLUMNS) await client.query(q);
     const { rows } = await client.query("select exists(select 1 from destinations) as seeded");
     if (!rows[0].seeded) await seedAll(drizzle(client));
+    await addCatalogExtras(drizzle(client));
     await client.query(META);
     await client.query(
-      `insert into "_gowayy_meta" (key, value) values ('schema', $1) on conflict (key) do update set value = excluded.value`,
-      [SCHEMA_VERSION],
+      `insert into "_gowayy_meta" (key, value) values ('schema', $1), ('catalog', $2)
+       on conflict (key) do update set value = excluded.value`,
+      [SCHEMA_VERSION, CATALOG_VERSION],
     );
     await client.query("COMMIT");
   } catch (e) {
@@ -367,6 +372,67 @@ const SHOPS: Record<string, S[]> = {
     ["Private Gallery Walk", "🏛️", 499, 599, "per person", "Experiences", "craft", true, "A curator-led walk through the gallery."],
   ],
 };
+
+// ---------- CATALOGUE ADDITIONS ----------
+// Added after launch, so they're applied idempotently to new *and* existing
+// databases (matched by vendor slug / vendor + dish name). Bump CATALOG_VERSION
+// whenever this list changes and the next start-up applies it once.
+const CATALOG_VERSION = "2026-11-26.pizza-spicy";
+
+const EXTRA_VENDORS = [
+  {
+    slug: "slice-of-the-hills", kind: "restaurant", dest: "darjeeling", name: "Slice of the Hills", tagline: "Wood-fired pizza on Mall Road",
+    description: "Hand-stretched sourdough pizzas from a wood-fired oven, plus fiery bites for cold hill evenings.", area: "Mall Road",
+    image: "/media/food/pizzeria.webp", rating: 4.6, etaMins: 30, minOrder: 199, deliveryFee: 30, cuisines: ["Pizza", "Italian", "Spicy"],
+  },
+];
+
+// vendor slug → [name, emoji, price, mrp, category, veg, image, tag, description]
+type X = [string, string, number, number, string, boolean, string, string, string];
+const EXTRA_MENU: Record<string, X[]> = {
+  "slice-of-the-hills": [
+    ["Classic Margherita Pizza", "🍕", 299, 369, "Pizza", true, "/media/food/pizza-margherita.webp", "Bestseller", "San Marzano tomato, fresh mozzarella and basil on a blistered wood-fired crust."],
+    ["Fiery Jalapeño Chicken Pizza", "🌶️", 399, 489, "Pizza", false, "/media/food/pizza-jalapeno.webp", "Spicy", "Spicy peri-peri chicken, jalapeños and red chilli flakes over mozzarella."],
+    ["Smoked Pork Sausage Pizza", "🍕", 429, 499, "Pizza", false, "/media/food/pizza-sausage.webp", "", "Smoked hill-pork sausage, mozzarella and torn basil."],
+    ["Farmhouse Tomato & Herb Pizza", "🍕", 329, 389, "Pizza", true, "/media/food/pizza-tomato.webp", "", "Roasted tomatoes, oregano, garlic oil and a little Kalimpong cheese."],
+    ["Hot Garlic Chicken Wings", "🌶️", 249, 299, "Spicy", false, "/media/food/spicy-wings.webp", "Spicy", "Spicy wings glazed in hot garlic and dalle chilli, with a cooling dip."],
+  ],
+  "kalimpong-kafe": [
+    ["Kalimpong Cheese Pizza", "🍕", 279, 329, "Pizza", true, "/media/food/pizza-margherita.webp", "Local fave", "Thin-crust pizza loaded with Kalimpong's own cheese and fresh basil."],
+  ],
+  "momo-mountain-kitchen": [
+    ["Chilli Chicken (Dry)", "🌶️", 220, 250, "Spicy", false, "/media/food/chilli-chicken.webp", "Spicy", "Spicy wok-tossed chicken with dalle chilli, garlic and spring onion."],
+  ],
+  "siliguri-biryani-house": [
+    ["Spicy Chicken Pakora", "🌶️", 180, 210, "Spicy", false, "/media/food/chicken-pakora.webp", "", "Spicy, crisp chicken fritters with green chilli and lemon."],
+    ["Spicy Hyderabadi Chicken Biryani", "🍛", 299, 349, "Biryani", false, "/media/food/biryani.webp", "Spicy", "Spicy dum biryani layered with green chilli, mint and fried onions."],
+  ],
+};
+
+async function addCatalogExtras(db: NodePgDatabase) {
+  const dRows = await db.select({ id: destinations.id, slug: destinations.slug }).from(destinations);
+  const dId = Object.fromEntries(dRows.map((d) => [d.slug, d.id]));
+  for (const { dest, ...v } of EXTRA_VENDORS) {
+    if (dId[dest]) await db.insert(vendors).values({ ...v, destinationId: dId[dest] }).onConflictDoNothing({ target: vendors.slug });
+  }
+  const slugs = Object.keys(EXTRA_MENU);
+  const vRows = await db.select({ id: vendors.id, slug: vendors.slug }).from(vendors).where(inArray(vendors.slug, slugs));
+  for (const v of vRows) {
+    const items = EXTRA_MENU[v.slug];
+    const have = await db
+      .select({ name: products.name })
+      .from(products)
+      .where(and(eq(products.vendorId, v.id), inArray(products.name, items.map((x) => x[0]))));
+    const known = new Set(have.map((h) => h.name));
+    const add = items.filter((x) => !known.has(x[0]));
+    if (!add.length) continue;
+    await db.insert(products).values(
+      add.map((x) => ({
+        vendorId: v.id, name: x[0], emoji: x[1], price: x[2], mrp: x[3], unit: "1 serving", category: x[4], veg: x[5], image: x[6], tag: x[7], description: x[8],
+      })),
+    );
+  }
+}
 
 async function seedAll(db: NodePgDatabase) {
   // users

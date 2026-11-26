@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -31,12 +31,16 @@ type Ctx = {
   toast: (msg: string, tone?: "ok" | "err") => void;
   locSlug: string;
   setLoc: (slug: string) => void;
+  /** true while the page re-renders for a newly chosen area */
+  locPending: boolean;
   dests: { slug: string; name: string }[];
   requireAuth: () => boolean;
 };
 
 const AppCtx = createContext<Ctx>(null as unknown as Ctx);
 export const useApp = () => useContext(AppCtx);
+
+const PENDING_ADD = "gw_pending_add";
 
 export function Providers(props: {
   user: AppUser;
@@ -58,6 +62,7 @@ export function Providers(props: {
   const [favs, setFavs] = useState(props.initialFavs);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [locSlug, setLocSlug] = useState(props.locSlug);
+  const [locPending, startLoc] = useTransition();
 
   const toast = useCallback((msg: string, tone: "ok" | "err" = "ok") => {
     const id = Date.now() + Math.random();
@@ -68,12 +73,20 @@ export function Providers(props: {
   const requireAuth = useCallback(() => {
     if (user) return true;
     toast("Sign in to continue", "err");
-    router.push(`/auth?next=${encodeURIComponent(pathname || "/")}`);
+    // come back to exactly this view (filters and search included) after signing in
+    const here = typeof window === "undefined" ? pathname || "/" : window.location.pathname + window.location.search;
+    router.push(`/auth?next=${encodeURIComponent(here)}`);
     return false;
   }, [user, toast, router, pathname]);
 
   const setQty = useCallback(
     async (productId: number, qty: number) => {
+      if (!user && qty > 0) {
+        // Remember what they tapped: it lands in the bag as soon as they're signed in.
+        try {
+          sessionStorage.setItem(PENDING_ADD, JSON.stringify({ productId, qty, at: Date.now() }));
+        } catch {}
+      }
       if (!requireAuth()) return;
       const prev = cartRef.current[productId] ?? 0;
       const apply = (q: number) =>
@@ -93,8 +106,28 @@ export function Providers(props: {
         toast(e instanceof Error ? e.message : "Could not update bag", "err");
       }
     },
-    [requireAuth, toast],
+    [user, requireAuth, toast],
   );
+
+  // Finish an "Add" that was tapped while signed out (see setQty above).
+  useEffect(() => {
+    if (!user) return;
+    // Deferred, and the entry is only consumed inside the timer, so an effect that is
+    // set up, torn down and set up again (React dev mode) still adds exactly once.
+    const t = setTimeout(() => {
+      let pending: { productId: number; qty: number; at: number } | null = null;
+      try {
+        pending = JSON.parse(sessionStorage.getItem(PENDING_ADD) ?? "null");
+        sessionStorage.removeItem(PENDING_ADD);
+      } catch {}
+      if (!pending || Date.now() - pending.at > 30 * 60 * 1000 || cartRef.current[pending.productId]) return;
+      const { productId, qty } = pending;
+      setQty(productId, qty).then(() => {
+        if (cartRef.current[productId]) toast("Added to your bag");
+      });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [user, setQty, toast]);
 
   const toggleFav = useCallback(
     async (kind: string, id: number) => {
@@ -117,9 +150,11 @@ export function Providers(props: {
 
   const setLoc = useCallback(
     (slug: string) => {
-      document.cookie = `gw_loc=${slug}; path=/; max-age=31536000; samesite=lax`;
+      const secure = location.protocol === "https:" ? "; secure" : "";
+      document.cookie = `gw_loc=${encodeURIComponent(slug)}; path=/; max-age=31536000; samesite=lax${secure}`;
       setLocSlug(slug);
-      router.refresh();
+      // re-render the server pages for the new area; the picker shows progress meanwhile
+      startLoc(() => router.refresh());
     },
     [router],
   );
@@ -139,10 +174,11 @@ export function Providers(props: {
       toast,
       locSlug,
       setLoc,
+      locPending,
       dests: props.dests,
       requireAuth,
     }),
-    [user, cart, setQty, favs, toggleFav, props.unread, toast, locSlug, setLoc, props.dests, requireAuth],
+    [user, cart, setQty, favs, toggleFav, props.unread, toast, locSlug, setLoc, locPending, props.dests, requireAuth],
   );
 
   return (

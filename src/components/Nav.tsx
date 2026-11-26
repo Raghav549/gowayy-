@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bell, Compass, Home, LayoutGrid, MapPin, ShoppingBag, User, X, Heart, Receipt, Wallet, Luggage, ChevronDown, ShieldCheck,
+  Bell, Compass, Home, LayoutGrid, Loader2, MapPin, ShoppingBag, User, X, Heart, Receipt, Wallet, Luggage, ChevronDown, ShieldCheck,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { SearchBox } from "@/components/SearchBox";
@@ -31,7 +31,7 @@ function measureMenu(el: HTMLElement): MenuPos | null {
 }
 
 function LocationPicker({ light = false, compact = false }: { light?: boolean; compact?: boolean }) {
-  const { dests, locSlug, setLoc } = useApp();
+  const { dests, locSlug, setLoc, locPending } = useApp();
   // The menu is portalled to <body> and positioned from the trigger: cards and
   // headers use backdrop-filters/animations that create stacking contexts, which
   // let later page content paint over an in-place dropdown.
@@ -74,9 +74,10 @@ function LocationPicker({ light = false, compact = false }: { light?: boolean; c
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={`Location: ${cur?.name ?? "All hills"}`}
+        aria-busy={locPending}
         className={`flex h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full text-sm font-semibold transition ${compact ? "px-3" : "px-3.5"} ${light ? "bg-white/80 hover:bg-white" : "glass"}`}
       >
-        <MapPin size={16} className="shrink-0 text-brand-600" />
+        {locPending ? <Loader2 size={16} className="shrink-0 animate-spin text-brand-600" /> : <MapPin size={16} className="shrink-0 text-brand-600" />}
         <span className={`truncate ${compact ? "max-w-[6.5rem] min-[380px]:max-w-[8.5rem]" : "max-w-28"}`}>{cur?.name ?? "All hills"}</span>
         <ChevronDown size={14} className={`shrink-0 transition ${open ? "rotate-180" : ""}`} />
       </button>
@@ -174,7 +175,7 @@ export function BottomNav() {
 
   if (path.startsWith("/auth")) return null;
 
-  const svc = ["/tours", "/hotels", "/cabs", "/grocery", "/food", "/shops", "/store"];
+  const svc = ["/tours", "/hotels", "/cabs", "/grocery", "/food", "/shops", "/store", "/offers"];
   let idx = -1;
   if (path === "/") idx = 0;
   else if (["/explore", "/destinations", "/attractions", "/search"].some((p) => path.startsWith(p))) idx = 1;

@@ -8,6 +8,8 @@ import { Logo } from "@/components/Logo";
 import { SearchBox } from "@/components/SearchBox";
 import { LocationPicker, ProfileButton } from "@/components/Nav";
 import { CategoryRail } from "@/components/CategoryRail";
+import { OfferSlides } from "@/components/OfferSlides";
+import { getOfferSlides } from "@/lib/offers";
 import { AttractionCard, DestinationCard, HotelCard, PackageCard, VendorCard } from "@/components/Cards";
 import { ProductCard } from "@/components/ProductCard";
 import { SectionHead } from "@/components/ui";
@@ -20,7 +22,7 @@ export default async function HomePage() {
   const [loc, dm] = await Promise.all([getLoc(), getDestMap()]);
   const near = (destCol: typeof vendors.destinationId) => sql`(${destCol} = ${loc?.id ?? 0}) desc`;
 
-  const [pkgs, groceryRows, restaurants, stays, shops, attrs] = await Promise.all([
+  const [pkgs, groceryRows, restaurants, stays, shops, attrs, slides] = await Promise.all([
     db.select().from(packages).where(eq(packages.featured, true)).orderBy(desc(packages.rating)).limit(6),
     db
       .select({ p: products, v: vendors })
@@ -33,6 +35,7 @@ export default async function HomePage() {
     db.select().from(hotels).orderBy(sql`(${hotels.destinationId} = ${loc?.id ?? 0}) desc`, desc(hotels.rating)).limit(6),
     db.select().from(vendors).where(eq(vendors.kind, "shop")).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
     db.select().from(attractions).orderBy(sql`(${attractions.destinationId} = ${loc?.id ?? 0}) desc`, desc(attractions.rating)).limit(6),
+    getOfferSlides(),
   ]);
   const seen = new Set<string>();
   const groceries = groceryRows.filter((r) => (seen.has(r.p.name) ? false : seen.add(r.p.name))).slice(0, 10);
@@ -59,6 +62,8 @@ export default async function HomePage() {
       </div>
 
       <CategoryRail className="mt-5" />
+
+      <OfferSlides slides={slides} className="anim-up mt-4" />
 
       {hero && (
         <Link href={`/tours/${hero.slug}`} className="anim-up group lift zoom relative mt-5 flex min-h-48 flex-col justify-between gap-6 overflow-hidden rounded-[30px] p-4 text-white sm:min-h-60 sm:p-6 lg:min-h-72" style={{ "--i": 2 } as React.CSSProperties}>
