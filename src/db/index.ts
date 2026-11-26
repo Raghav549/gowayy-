@@ -8,15 +8,29 @@ import { attachDatabasePool } from "@vercel/functions";
  * Supabase, Prisma Postgres) inject, so connecting one in the Vercel dashboard
  * is enough — no manual copying.
  */
+const URL_VARS = ["DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL", "DATABASE_URL_UNPOOLED", "POSTGRES_URL_NON_POOLING"] as const;
+
+/**
+ * Undo the usual copy-paste slips when a connection string is pasted into a
+ * dashboard: surrounding quotes, Neon's `psql '…'` snippet, or the whole
+ * `DATABASE_URL=…` line.
+ */
+function cleanUrl(raw: string): string {
+  let s = raw.trim();
+  s = s.replace(/^[A-Z_]+\s*=\s*/, "").trim();
+  s = s.replace(/^psql\s+/, "").trim();
+  if ((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))) s = s.slice(1, -1).trim();
+  return s;
+}
+
+/** Which environment variable the connection string comes from (for diagnostics). */
+export function databaseUrlSource(): string | null {
+  return URL_VARS.find((k) => cleanUrl(process.env[k] ?? "")) ?? null;
+}
+
 export function databaseUrl(): string {
-  return (
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    ""
-  ).trim();
+  const key = databaseUrlSource();
+  return key ? cleanUrl(process.env[key] ?? "") : "";
 }
 
 export class DatabaseNotConfiguredError extends Error {

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { PoolClient } from "pg";
 import { pool } from "@/db";
@@ -17,7 +17,7 @@ import {
 } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
 import { pick, type PoolKey } from "@/lib/images";
-import { photo, productPhoto } from "@/lib/photos";
+import { photo, photoKeys, productPhoto } from "@/lib/photos";
 
 const g = globalThis as typeof globalThis & { __gwSeed?: Promise<void> };
 
@@ -71,15 +71,17 @@ async function run() {
     // concurrent cold starts wait for each other, a failure leaves nothing
     // half-created, and it works behind PgBouncer-style poolers (Neon,
     // Supabase) where session-level advisory locks are unreliable.
-    await client.query("BEGIN");
-    await client.query("SELECT pg_advisory_xact_lock(727272)");
-    for (const q of CREATE_SCHEMA) await client.query(q);
-    for (const q of UPGRADE_COLUMNS) await client.query(q);
+    //
+    // Every step is batched into as few round trips as possible: the database
+    // is often in another region than the serverless function (e.g. Neon in
+    // Singapore, Vercel in Washington), where each round trip costs ~200 ms.
+    await client.query("BEGIN; SELECT pg_advisory_xact_lock(727272);");
+    // DDL has no parameters, so the whole schema goes over as one simple query.
+    await client.query([...CREATE_SCHEMA, ...UPGRADE_COLUMNS, `${META};`].join("\n"));
     const { rows } = await client.query("select exists(select 1 from destinations) as seeded");
     if (!rows[0].seeded) await seedAll(drizzle(client));
     await addCatalogExtras(drizzle(client));
     await applyPhotos(client);
-    await client.query(META);
     await client.query(
       `insert into "_gowayy_meta" (key, value) values ('schema', $1), ('catalog', $2)
        on conflict (key) do update set value = excluded.value`,
@@ -415,26 +417,25 @@ const EXTRA_MENU: Record<string, X[]> = {
 async function addCatalogExtras(db: NodePgDatabase) {
   const dRows = await db.select({ id: destinations.id, slug: destinations.slug }).from(destinations);
   const dId = Object.fromEntries(dRows.map((d) => [d.slug, d.id]));
-  for (const { dest, ...v } of EXTRA_VENDORS) {
-    if (dId[dest]) await db.insert(vendors).values({ ...v, destinationId: dId[dest] }).onConflictDoNothing({ target: vendors.slug });
-  }
+  const newVendors = EXTRA_VENDORS.filter((v) => dId[v.dest]).map(({ dest, ...v }) => ({ ...v, destinationId: dId[dest] }));
+  if (newVendors.length) await db.insert(vendors).values(newVendors).onConflictDoNothing({ target: vendors.slug });
   const slugs = Object.keys(EXTRA_MENU);
   const vRows = await db.select({ id: vendors.id, slug: vendors.slug }).from(vendors).where(inArray(vendors.slug, slugs));
-  for (const v of vRows) {
-    const items = EXTRA_MENU[v.slug];
-    const have = await db
-      .select({ name: products.name })
-      .from(products)
-      .where(and(eq(products.vendorId, v.id), inArray(products.name, items.map((x) => x[0]))));
-    const known = new Set(have.map((h) => h.name));
-    const add = items.filter((x) => !known.has(x[0]));
-    if (!add.length) continue;
-    await db.insert(products).values(
-      add.map((x) => ({
+  if (!vRows.length) return;
+  const names = [...new Set(Object.values(EXTRA_MENU).flatMap((items) => items.map((x) => x[0])))];
+  const have = await db
+    .select({ vendorId: products.vendorId, name: products.name })
+    .from(products)
+    .where(and(inArray(products.vendorId, vRows.map((v) => v.id)), inArray(products.name, names)));
+  const known = new Set(have.map((h) => `${h.vendorId}|${h.name}`));
+  const add = vRows.flatMap((v) =>
+    EXTRA_MENU[v.slug]
+      .filter((x) => !known.has(`${v.id}|${x[0]}`))
+      .map((x) => ({
         vendorId: v.id, name: x[0], emoji: x[1], price: x[2], mrp: x[3], unit: "1 serving", category: x[4], veg: x[5], image: productPhoto(x[0]) ?? x[6], tag: x[7], description: x[8],
       })),
-    );
-  }
+  );
+  if (add.length) await db.insert(products).values(add);
 }
 
 /** The hotel's town and its best-known sights (the hero already shows the hotel). */
@@ -451,8 +452,7 @@ function hotelGallery(hotelSlug: string, destSlug: string): string[] | undefined
  */
 async function applyPhotos(client: PoolClient) {
   const bySlug = async (table: string, kind: "dest" | "attr" | "pkg" | "vendor") => {
-    const { rows } = await client.query<{ slug: string }>(`select slug from ${table}`);
-    const pairs = rows.map((r) => [r.slug, photo(kind, r.slug)] as const).filter((x): x is readonly [string, string] => !!x[1]);
+    const pairs = photoKeys(kind).map((k) => [k, photo(kind, k)] as const).filter((x): x is readonly [string, string] => !!x[1]);
     if (!pairs.length) return;
     await client.query(
       `update ${table} t set image = v.img from unnest($1::text[], $2::text[]) as v(slug, img)
@@ -468,10 +468,17 @@ async function applyPhotos(client: PoolClient) {
   const { rows: hs } = await client.query<{ slug: string; dest: string }>(
     `select h.slug, d.slug as dest from hotels h join destinations d on d.id = h.destination_id`,
   );
-  for (const h of hs) {
-    const image = photo("hotel", h.slug);
-    if (!image) continue;
-    await client.query(`update hotels set image = $2, gallery = coalesce($3::text[], gallery) where slug = $1`, [h.slug, image, hotelGallery(h.slug, h.dest) ?? null]);
+  const hp = hs.flatMap((h) => {
+    const img = photo("hotel", h.slug);
+    return img ? [{ slug: h.slug, img, gal: hotelGallery(h.slug, h.dest) ?? null }] : [];
+  });
+  if (hp.length) {
+    await client.query(
+      `update hotels h set image = v.img, gallery = coalesce(v.gal, h.gallery)
+       from jsonb_to_recordset($1::jsonb) as v(slug text, img text, gal text[])
+       where h.slug = v.slug and (h.image is distinct from v.img or (v.gal is not null and h.gallery is distinct from v.gal))`,
+      [JSON.stringify(hp)],
+    );
   }
 
   const { rows: ps } = await client.query<{ name: string }>(`select distinct name from products`);
@@ -495,7 +502,7 @@ async function applyPhotos(client: PoolClient) {
   await client.query(
     `update bookings b set image = '/media/cab/' || c.slug || '.webp' from cab_types c
      where b.type = 'cab' and b.ref_id = c.id and c.slug = any($1::text[])`,
-    [["bike", "hatchback", "sedan", "suv", "innova", "tempo"].filter((x) => photo("cab", x))],
+    [[...photoKeys("cab")]],
   );
   await client.query(`update bookings b set image = h.image from hotels h where b.type = 'hotel' and b.ref_id = h.id and h.image like '/media/%'`);
   await client.query(`update bookings b set image = p.image from packages p where b.type = 'package' and b.ref_id = p.id and p.image like '/media/%'`);
@@ -524,30 +531,37 @@ async function seedAll(db: NodePgDatabase) {
 
   const jit = (i: number) => ((i * 53) % 17) / 800 - 0.01;
 
-  // attractions with their own locations
-  for (let i = 0; i < ATTR.length; i++) {
-    const a = ATTR[i];
-    const lat = a[9] ?? dCoord[a[0]][0] + jit(i);
-    const lng = a[10] ?? dCoord[a[0]][1] + jit(i + 5);
-    const [loc] = await db.insert(locations).values({ destinationId: dId[a[0]], name: a[1], kind: "attraction", lat, lng }).returning();
-    await db.insert(attractions).values({
-      slug: slugify(a[1]), destinationId: dId[a[0]], name: a[1], category: a[2], description: a[3],
-      image: photo("attr", slugify(a[1])) ?? pick(a[4], i, 1200), rating: rate(i, 4.3), entryFee: a[5], duration: a[6], timings: a[7], tip: a[8], locationId: loc.id,
-    });
-  }
+  // Attractions and hotels each get their own map location: one insert for
+  // all the locations, then one per table, matched back by kind + name.
+  const locRows = await db
+    .insert(locations)
+    .values([
+      ...ATTR.map((a, i) => ({
+        destinationId: dId[a[0]], name: a[1], kind: "attraction", lat: a[9] ?? dCoord[a[0]][0] + jit(i), lng: a[10] ?? dCoord[a[0]][1] + jit(i + 5),
+      })),
+      ...HOTELS.map((h, i) => ({
+        destinationId: dId[h[0]], name: h[1], kind: "hotel", lat: h[9] ?? dCoord[h[0]][0] + jit(i), lng: h[10] ?? dCoord[h[0]][1] + jit(i + 3),
+      })),
+    ])
+    .returning({ id: locations.id, kind: locations.kind, name: locations.name });
+  const locId = new Map(locRows.map((l) => [`${l.kind}|${l.name}`, l.id]));
 
-  for (let i = 0; i < HOTELS.length; i++) {
-    const h = HOTELS[i];
-    const lat = h[9] ?? dCoord[h[0]][0] + jit(i);
-    const lng = h[10] ?? dCoord[h[0]][1] + jit(i + 3);
-    const [loc] = await db.insert(locations).values({ destinationId: dId[h[0]], name: h[1], kind: "hotel", lat, lng }).returning();
-    await db.insert(hotels).values({
+  await db.insert(attractions).values(
+    ATTR.map((a, i) => ({
+      slug: slugify(a[1]), destinationId: dId[a[0]], name: a[1], category: a[2], description: a[3],
+      image: photo("attr", slugify(a[1])) ?? pick(a[4], i, 1200), rating: rate(i, 4.3), entryFee: a[5], duration: a[6], timings: a[7], tip: a[8],
+      locationId: locId.get(`attraction|${a[1]}`),
+    })),
+  );
+
+  await db.insert(hotels).values(
+    HOTELS.map((h, i) => ({
       slug: slugify(h[1]), destinationId: dId[h[0]], name: h[1], type: h[2], description: h[3],
       image: photo("hotel", slugify(h[1])) ?? pick("room", i, 1200),
       gallery: hotelGallery(slugify(h[1]), h[0]) ?? [pick("room", i + 1, 1000), pick("room", i + 2, 1000), pick("peaks", i, 1000)],
-      pricePerNight: h[4], stars: h[5], rating: h[6], amenities: h[7], area: h[8], locationId: loc.id,
-    });
-  }
+      pricePerNight: h[4], stars: h[5], rating: h[6], amenities: h[7], area: h[8], locationId: locId.get(`hotel|${h[1]}`),
+    })),
+  );
 
   await db.insert(packages).values(
     PKG.map((p, i) => ({
