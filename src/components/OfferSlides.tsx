@@ -71,7 +71,7 @@ export function OfferSlides({ slides, className = "" }: { slides: OfferSlide[]; 
             href={s.href}
             className="group relative isolate block aspect-[2/1] w-full min-w-0 overflow-hidden rounded-[24px] bg-[#123040] outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:rounded-[28px]"
           >
-            {/* Painted banner artwork carries the headline; live offer terms sit on top. */}
+            {/* Text-free banner artwork; the live offer terms sit on top as a chip. */}
             {/* eslint-disable-next-line @next/next/no-img-element -- pre-sized local webp */}
             <img
               src={s.img}

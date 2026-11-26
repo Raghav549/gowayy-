@@ -37,18 +37,18 @@ export async function getOfferSlides(): Promise<OfferSlide[]> {
   // Order: trips, stays, cabs, food, groceries.
   const slides: (OfferSlide | null)[] = [
     c.GOWAYY15
-      ? { key: "tours", href: "/tours", img: "/media/banners/tours.webp", badge: couponHeadline(c.GOWAYY15), title: "Tea trails & Himalayan treks", detail: `Trips ${couponTerms(c.GOWAYY15).toLowerCase()} · code GOWAYY15`, code: "GOWAYY15" }
+      ? { key: "tours", href: "/tours", img: "/media/banners/tours-art.webp", badge: couponHeadline(c.GOWAYY15), title: "Tea trails & Himalayan treks", detail: `Trips ${couponTerms(c.GOWAYY15).toLowerCase()} · code GOWAYY15`, code: "GOWAYY15" }
       : null,
     c.HILLS10
-      ? { key: "stays", href: "/hotels", img: "/media/banners/stays.webp", badge: couponHeadline(c.HILLS10), title: "Stays with a mountain view", detail: `Bookings ${couponTerms(c.HILLS10).toLowerCase()} · code HILLS10`, code: "HILLS10" }
+      ? { key: "stays", href: "/hotels", img: "/media/banners/stays-art.webp", badge: couponHeadline(c.HILLS10), title: "Stays with a mountain view", detail: `Bookings ${couponTerms(c.HILLS10).toLowerCase()} · code HILLS10`, code: "HILLS10" }
       : null,
     c.FIRSTRIDE
-      ? { key: "cabs", href: "/cabs", img: "/media/banners/cabs.webp", badge: couponHeadline(c.FIRSTRIDE), title: "Hill cabs with local drivers", detail: `Rides ${couponTerms(c.FIRSTRIDE).toLowerCase()} · code FIRSTRIDE`, code: "FIRSTRIDE" }
+      ? { key: "cabs", href: "/cabs", img: "/media/banners/cabs-art.webp", badge: couponHeadline(c.FIRSTRIDE), title: "Hill cabs with local drivers", detail: `Rides ${couponTerms(c.FIRSTRIDE).toLowerCase()} · code FIRSTRIDE`, code: "FIRSTRIDE" }
       : null,
     c.WELCOME100
-      ? { key: "food", href: "/food", img: "/media/banners/food.webp", badge: couponHeadline(c.WELCOME100), title: "Hill kitchens, delivered hot", detail: `${couponTerms(c.WELCOME100)} · code WELCOME100`, code: "WELCOME100" }
+      ? { key: "food", href: "/food", img: "/media/banners/food-art.webp", badge: couponHeadline(c.WELCOME100), title: "Hill kitchens, delivered hot", detail: `${couponTerms(c.WELCOME100)} · code WELCOME100`, code: "WELCOME100" }
       : null,
-    { key: "grocery", href: "/grocery", img: "/media/banners/grocery.webp", badge: upTo("grocery") > 0 ? `Up to ${upTo("grocery")}% off` : "Fresh daily", title: "Groceries in ~10 minutes", detail: "Fresh produce, dairy & hill essentials" },
+    { key: "grocery", href: "/grocery", img: "/media/banners/grocery-art.webp", badge: upTo("grocery") > 0 ? `Up to ${upTo("grocery")}% off` : "Fresh daily", title: "Groceries in ~10 minutes", detail: "Fresh produce, dairy & hill essentials" },
   ];
   return slides.filter((s): s is OfferSlide => s !== null);
 }
