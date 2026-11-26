@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { connection } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/bricolage-grotesque";
 import "./globals.css";
@@ -9,6 +11,12 @@ import { Onboarding } from "@/components/Onboarding";
 import { DragScroll } from "@/components/DragScroll";
 import { getCurrentUser } from "@/lib/auth";
 import { getDestMap, getLoc, getShellData } from "@/lib/data";
+import { describeDbError } from "@/lib/db-status";
+import { SetupNotice } from "@/components/SetupNotice";
+
+// The first request on a fresh database creates the tables and loads the
+// catalogue; give it room on plans whose default function limit is short.
+export const maxDuration = 60;
 
 export const metadata: Metadata = {
   title: { default: "gowayy — explore, stay, ride & shop the hills", template: "%s · gowayy" },
@@ -26,8 +34,25 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const user = await getCurrentUser();
-  const [shell, loc, dm] = await Promise.all([getShellData(user?.id ?? null), getLoc(), getDestMap()]);
+  await connection(); // every page reads the session and the database
+  let data;
+  try {
+    const user = await getCurrentUser();
+    const [shell, loc, dm] = await Promise.all([getShellData(user?.id ?? null), getLoc(), getDestMap()]);
+    data = { user, shell, loc, dm };
+  } catch (e) {
+    unstable_rethrow(e);
+    // Database missing or unreachable: explain how to fix it instead of a blank error page.
+    console.error("[gowayy] Could not load app data:", e);
+    return (
+      <html lang="en">
+        <body>
+          <SetupNotice problem={describeDbError(e)} />
+        </body>
+      </html>
+    );
+  }
+  const { user, shell, loc, dm } = data;
   return (
     // data-scroll-behavior: CSS smooth scrolling is for in-page jumps only; Next
     // switches it off during route changes so a new page opens at the top instantly.

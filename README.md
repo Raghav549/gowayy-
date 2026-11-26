@@ -13,9 +13,11 @@ Built with Next.js 16 (App Router), React 19, Tailwind CSS 4, Drizzle ORM and Po
 
 You don't need to run any migration or seed step. On the first request the app creates every table, applies column upgrades and loads the demo catalogue. This runs in one transaction under a lock, so concurrent cold starts are safe and a failure leaves nothing half-created. Later starts cost a single query.
 
-To check a deployment, open `/api/health`: it returns `{"ok":true,"database":"ready"}` once everything is set up, and a clear message if the database is missing or unreachable.
+Setup is batched into about a dozen round trips, so it takes a few seconds even when the database is in a different region from the functions. For the fastest pages, set *Settings → Functions → Function Region* to the region of your Neon project (for example Singapore `sin1` for `aws-ap-southeast-1`).
 
-The build does **not** need database access, so preview deployments without a database still build. Pages then show a friendly "we'll be right back" screen until one is connected.
+To check a deployment, open `/api/health`: it returns `{"ok":true,"database":"ready"}` once everything is set up. If something is wrong it gives the error code, a plain-language fix, and which variable and host it used. It never shows the password.
+
+The build does **not** need database access, so preview deployments without a database still build. Until a database works, pages show a "Database not connected yet" / "We can't reach the database" screen with the same diagnosis.
 
 ### Demo accounts
 

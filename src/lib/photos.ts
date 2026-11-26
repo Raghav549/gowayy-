@@ -78,6 +78,11 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+/** Every key that has a photo, for bulk updates. */
+export function photoKeys(kind: PhotoKind): readonly string[] {
+  return KEYS[kind];
+}
+
 /** Local photo for an entity slug, or undefined when there is none. */
 export function photo(kind: PhotoKind, key: string): string | undefined {
   return SETS[kind].has(key) ? `/media/${kind}/${key}.webp` : undefined;
