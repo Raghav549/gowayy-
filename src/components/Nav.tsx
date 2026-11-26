@@ -226,42 +226,56 @@ export function BottomNav() {
       {open && (
         <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label="All services">
           <div className="fade-in absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="sheet-up glass-strong absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto overscroll-contain rounded-t-[36px] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink/15" />
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="font-display text-2xl font-semibold">Everything gowayy</h3>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5">
-                <X size={18} />
-              </button>
+          <div className="sheet-up absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto overscroll-contain rounded-t-[36px] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-20px_rgba(76,29,149,0.45)]">
+            {/* soft aurora wash behind the header */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-44 overflow-hidden rounded-t-[36px]">
+              <div className="absolute -left-12 -top-20 h-48 w-48 rounded-full bg-fuchsia-300/45 blur-3xl" />
+              <div className="absolute left-1/3 -top-24 h-48 w-48 rounded-full bg-cyan-200/55 blur-3xl" />
+              <div className="absolute -right-10 -top-16 h-44 w-44 rounded-full bg-amber-200/60 blur-3xl" />
             </div>
-            <div className="grid grid-cols-3 gap-x-3 gap-y-4">
-              {SERVICES.map((s, i) => (
-                <Link key={s.href} href={s.href} style={{ "--i": i } as React.CSSProperties} className="anim-pop group flex flex-col items-center gap-2 text-center transition active:scale-95">
-                  <span className={`grid h-[4.75rem] w-[4.75rem] place-items-center rounded-full bg-gradient-to-tr p-[3px] shadow-lg shadow-brand-600/20 transition group-hover:-translate-y-0.5 ${s.ring}`}>
-                    <span className="block h-full w-full overflow-hidden rounded-full bg-white p-[2.5px]">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- small pre-sized local webp */}
-                      <img src={s.img} alt="" width={144} height={144} decoding="async" draggable={false} className="h-full w-full rounded-full bg-ink object-cover transition duration-500 group-hover:scale-110" />
+            <div className="relative">
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-ink/15" />
+              <div className="mb-5 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-display text-2xl font-semibold leading-tight">
+                    Everything <span className="bg-gradient-to-r from-brand-600 via-fuchsia-500 to-orange-500 bg-clip-text text-transparent">gowayy</span>
+                  </h3>
+                  <p className="mt-0.5 text-xs font-semibold text-ink/50">Trips, rides, stays and deliveries in one tap</p>
+                </div>
+                <button onClick={() => setOpen(false)} aria-label="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/80 shadow-sm ring-1 ring-ink/5">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2.5">
+                {SERVICES.map((s, i) => (
+                  <Link key={s.href} href={s.href} style={{ "--i": i } as React.CSSProperties} className={`anim-pop group flex min-w-0 flex-col items-center gap-2 rounded-[26px] px-1 pb-3 pt-3.5 text-center ring-1 ring-black/[0.04] transition active:scale-95 ${s.tile}`}>
+                    <span className={`grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-gradient-to-tr p-[3px] shadow-lg shadow-brand-700/15 transition duration-300 group-hover:-translate-y-0.5 ${s.ring}`}>
+                      <span className="block h-full w-full overflow-hidden rounded-full bg-white p-[2px]">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- small pre-sized local webp */}
+                        <img src={s.img} alt="" width={144} height={144} decoding="async" draggable={false} className="h-full w-full rounded-full bg-brand-50 object-cover transition duration-500 group-hover:rotate-3 group-hover:scale-110" />
+                      </span>
                     </span>
-                  </span>
-                  <span className="text-sm font-bold">{s.label}</span>
-                </Link>
-              ))}
-            </div>
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              {[
-                { href: "/bookings", label: "My trips", icon: Luggage },
-                { href: "/orders", label: "Orders", icon: Receipt },
-                { href: "/favorites", label: "Saved", icon: Heart },
-                { href: "/notifications", label: "Alerts", icon: Bell, badge: unread },
-                { href: "/profile", label: "Wallet", icon: Wallet },
-                { href: "/explore", label: "Explore", icon: Compass },
-              ].map((l) => (
-                <Link key={l.href + l.label} href={l.href} className="relative flex flex-col items-center gap-1.5 rounded-2xl bg-white/70 py-3 text-[11px] font-bold transition active:scale-95">
-                  <l.icon size={19} className="text-brand-600" />
-                  {l.label}
-                  {!!l.badge && <span className="absolute right-3 top-2 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{l.badge}</span>}
-                </Link>
-              ))}
+                    <span className={`max-w-full truncate text-[13px] font-extrabold ${s.fg}`}>{s.label}</span>
+                  </Link>
+                ))}
+              </div>
+              <p className="mb-2 mt-5 px-1 text-[11px] font-bold uppercase tracking-wider text-ink/40">Quick links</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { href: "/bookings", label: "My trips", icon: Luggage, chip: "bg-violet-100 text-violet-700" },
+                  { href: "/orders", label: "Orders", icon: Receipt, chip: "bg-amber-100 text-amber-700" },
+                  { href: "/favorites", label: "Saved", icon: Heart, chip: "bg-rose-100 text-rose-600" },
+                  { href: "/notifications", label: "Alerts", icon: Bell, chip: "bg-sky-100 text-sky-700", badge: unread },
+                  { href: "/profile", label: "Wallet", icon: Wallet, chip: "bg-emerald-100 text-emerald-700" },
+                  { href: "/explore", label: "Explore", icon: Compass, chip: "bg-fuchsia-100 text-fuchsia-700" },
+                ].map((l) => (
+                  <Link key={l.href + l.label} href={l.href} className="relative flex min-w-0 flex-col items-center gap-1.5 rounded-2xl bg-white py-3 text-[11px] font-bold shadow-sm ring-1 ring-ink/[0.06] transition active:scale-95">
+                    <span className={`grid h-9 w-9 place-items-center rounded-xl ${l.chip}`}><l.icon size={17} /></span>
+                    <span className="max-w-full truncate px-1">{l.label}</span>
+                    {!!l.badge && <span className="absolute right-3 top-2 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{l.badge}</span>}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </div>
