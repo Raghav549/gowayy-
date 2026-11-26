@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, CreditCard, Loader2, ShieldCheck, Smartphone, Wallet, X } from "lucide-react";
 import { useApp } from "@/components/Providers";
+import { Portal } from "@/components/Portal";
 import { inr } from "@/lib/utils";
 
 export type PayInput = {
@@ -14,9 +15,7 @@ export type PayInput = {
 
 type Result = { error?: string; redirect?: string };
 
-export function PaymentSheet({
-  open, onClose, amount, title = "Complete payment", allowCod = false, codLabel = "Pay on delivery", noWallet = false, onPay,
-}: {
+type SheetProps = {
   open: boolean;
   onClose: () => void;
   amount: number;
@@ -25,27 +24,25 @@ export function PaymentSheet({
   codLabel?: string;
   noWallet?: boolean;
   onPay: (p: PayInput) => Promise<Result>;
-}) {
+};
+
+/** Mounted only while open, so every opening starts from a fresh state. */
+export function PaymentSheet(props: SheetProps) {
+  return props.open ? <PaymentSheetBody {...props} /> : null;
+}
+
+function PaymentSheetBody({
+  onClose, amount, title = "Complete payment", allowCod = false, codLabel = "Pay on delivery", noWallet = false, onPay,
+}: Omit<SheetProps, "open">) {
   const { user } = useApp();
   const router = useRouter();
   const wallet = user?.wallet ?? 0;
   const canWallet = !noWallet && wallet >= amount;
-  const [method, setMethod] = useState<PayInput["method"]>("wallet");
+  const [method, setMethod] = useState<PayInput["method"]>(canWallet ? "wallet" : "upi");
   const [upi, setUpi] = useState("");
   const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
   const [phase, setPhase] = useState<"idle" | "busy" | "ok">("idle");
   const [err, setErr] = useState("");
-
-  useEffect(() => {
-    if (open) {
-      setPhase("idle");
-      setErr("");
-      setMethod(canWallet ? "wallet" : "upi");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  if (!open) return null;
 
   async function pay() {
     setErr("");
@@ -77,19 +74,20 @@ export function PaymentSheet({
       onClick={() => setMethod(m)}
       className={`flex w-full items-center gap-3 rounded-2xl p-3.5 text-left ring-1 transition ${method === m ? "bg-brand-50 ring-2 ring-brand-500" : "bg-white/70 ring-brand-100 hover:bg-white"} ${disabled ? "opacity-45" : ""}`}
     >
-      <span className={`grid h-10 w-10 place-items-center rounded-xl ${method === m ? "bg-brand-600 text-white" : "bg-lav text-brand-700"}`}>{icon}</span>
-      <span className="flex-1">
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${method === m ? "bg-brand-600 text-white" : "bg-lav text-brand-700"}`}>{icon}</span>
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold">{label}</span>
         <span className="block text-xs text-ink/55">{sub}</span>
       </span>
-      <span className={`h-5 w-5 rounded-full border-2 transition ${method === m ? "border-brand-600 bg-brand-600 shadow-[inset_0_0_0_3px_#fff]" : "border-ink/20"}`} />
+      <span className={`h-5 w-5 shrink-0 rounded-full border-2 transition ${method === m ? "border-brand-600 bg-brand-600 shadow-[inset_0_0_0_3px_#fff]" : "border-ink/20"}`} />
     </button>
   );
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center">
+    <Portal>
+    <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-sm" onClick={() => phase !== "busy" && onClose()} />
-      <div className="sheet-up glass-strong relative max-h-[92vh] w-full max-w-md overflow-auto rounded-t-[36px] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-[36px]">
+      <div className="sheet-up glass-strong relative max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[36px] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-[36px]">
         {phase === "ok" ? (
           <div className="grid place-items-center py-12 text-center">
             <svg width="96" height="96" viewBox="0 0 96 96" className="anim-pop">
@@ -102,12 +100,12 @@ export function PaymentSheet({
         ) : (
           <>
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-ink/15 sm:hidden" />
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="font-display text-2xl font-semibold">{title}</h3>
                 <p className="text-sm text-ink/55">Total payable <b className="text-ink">{inr(amount)}</b></p>
               </div>
-              <button onClick={onClose} aria-label="Close" disabled={phase === "busy"} className="grid h-10 w-10 place-items-center rounded-full bg-ink/5"><X size={18} /></button>
+              <button onClick={onClose} aria-label="Close" disabled={phase === "busy"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5"><X size={18} /></button>
             </div>
 
             <div className="mt-4 space-y-2.5">
@@ -145,5 +143,6 @@ export function PaymentSheet({
         )}
       </div>
     </div>
+    </Portal>
   );
 }

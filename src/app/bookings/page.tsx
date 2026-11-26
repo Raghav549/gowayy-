@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
-import { BedDouble, CarTaxiFront, Mountain, Sparkles } from "lucide-react";
+import { BedDouble, CarTaxiFront, Luggage, Mountain, Ticket } from "lucide-react";
 import { db } from "@/db";
 import { bookings } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
@@ -13,7 +13,7 @@ import { Img } from "@/components/Img";
 export const metadata = { title: "My trips" };
 export const dynamic = "force-dynamic";
 
-const ICON = { hotel: BedDouble, cab: CarTaxiFront, package: Mountain, experience: Sparkles } as const;
+const ICON = { hotel: BedDouble, cab: CarTaxiFront, package: Mountain, experience: Ticket } as const;
 
 export default async function BookingsPage() {
   const user = await getCurrentUser();
@@ -24,7 +24,7 @@ export default async function BookingsPage() {
   const past = list.filter((b) => !upcoming.includes(b));
 
   const Card = ({ b, i }: { b: (typeof list)[number]; i: number }) => {
-    const Icon = ICON[b.type as keyof typeof ICON] ?? Sparkles;
+    const Icon = ICON[b.type as keyof typeof ICON] ?? Ticket;
     return (
       <Link href={`/bookings/${b.code}`} style={{ "--i": i } as React.CSSProperties} className="anim-up lift glass-strong flex items-center gap-4 rounded-[30px] p-2.5">
         <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[24px]">
@@ -49,15 +49,15 @@ export default async function BookingsPage() {
     <div className="page">
       <PageHeader title="My trips" sub="Tours, stays, cabs & experiences" />
       {list.length === 0 ? (
-        <Empty emoji="🧳" title="No bookings yet" text="Book a tour, stay or ride — we'll keep everything together here." href="/tours" cta="Browse tours" />
+        <Empty icon={Luggage} title="No bookings yet" text="Book a tour, stay or ride — we'll keep everything together here." href="/tours" cta="Browse tours" />
       ) : (
         <div className="mx-auto max-w-3xl">
           <h2 className="font-display mb-3 text-xl font-semibold">Upcoming</h2>
-          <div className="grid gap-3">{upcoming.length ? upcoming.map((b, i) => <Card key={b.id} b={b} i={i} />) : <p className="glass rounded-3xl p-5 text-sm text-ink/60">Nothing upcoming. <Link href="/tours" className="font-bold text-brand-700">Plan a trip →</Link></p>}</div>
+          <div className="grid grid-cols-1 gap-3">{upcoming.length ? upcoming.map((b, i) => <Card key={b.id} b={b} i={i} />) : <p className="glass rounded-3xl p-5 text-sm text-ink/60">Nothing upcoming. <Link href="/tours" className="font-bold text-brand-700">Plan a trip →</Link></p>}</div>
           {past.length > 0 && (
             <>
               <h2 className="font-display mb-3 mt-8 text-xl font-semibold">Past & cancelled</h2>
-              <div className="grid gap-3 opacity-90">{past.map((b, i) => <Card key={b.id} b={b} i={i} />)}</div>
+              <div className="grid grid-cols-1 gap-3 opacity-90">{past.map((b, i) => <Card key={b.id} b={b} i={i} />)}</div>
             </>
           )}
         </div>

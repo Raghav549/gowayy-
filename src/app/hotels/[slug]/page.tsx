@@ -38,7 +38,7 @@ export default async function HotelPage({ params }: { params: Promise<{ slug: st
         ))}
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div>
           <div className="glass rounded-[28px] p-5">
             <h2 className="font-display text-2xl font-semibold">About this stay</h2>

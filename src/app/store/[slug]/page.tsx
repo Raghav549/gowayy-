@@ -51,7 +51,7 @@ export default async function StorePage({ params }: { params: Promise<{ slug: st
       {exps.length > 0 && (
         <>
           <h2 className="font-display mb-3 mt-8 text-2xl font-semibold">Book an experience</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {exps.map((p, i) => (
               <div key={p.id} style={{ "--i": i } as React.CSSProperties} className="anim-up glass-strong flex items-center gap-3 rounded-[28px] p-2.5">
                 <Img src={p.image || v.image} alt={p.name} className="h-20 w-20 shrink-0 rounded-2xl object-cover" />

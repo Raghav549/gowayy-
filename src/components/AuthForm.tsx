@@ -39,7 +39,7 @@ export function AuthForm() {
   const inp = "h-12 min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-ink/35";
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       <div className="relative hidden overflow-hidden lg:block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={px(41192863, 1400)} alt="" className="absolute inset-0 h-full w-full object-cover" />

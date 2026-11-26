@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, LogOut, Plus } from "lucide-react";
+import { Bike, CreditCard, Gift, Info, Loader2, LogOut, Plus, Ticket, type LucideIcon } from "lucide-react";
 import { useApp } from "@/components/Providers";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { inr } from "@/lib/utils";
@@ -120,7 +120,7 @@ export function NotificationList({ items }: { items: Notif[] }) {
     await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     router.refresh();
   };
-  const icon: Record<string, string> = { order: "🛵", booking: "🎫", payment: "💳", promo: "🎁", info: "✨" };
+  const icon: Record<string, LucideIcon> = { order: Bike, booking: Ticket, payment: CreditCard, promo: Gift, info: Info };
   return (
     <div className="mx-auto max-w-2xl">
       {list.some((n) => !n.read) && (
@@ -137,9 +137,12 @@ export function NotificationList({ items }: { items: Notif[] }) {
             }}
             className={`anim-up lift flex w-full items-start gap-3 rounded-[28px] p-4 text-left ${n.read ? "glass" : "glass-strong ring-2 ring-brand-300"}`}
           >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-xl">{icon[n.kind] ?? "✨"}</span>
+            {(() => {
+              const Icon = icon[n.kind] ?? Info;
+              return <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-700"><Icon size={19} /></span>;
+            })()}
             <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2 font-bold">{n.title}{!n.read && <span className="h-2 w-2 rounded-full bg-rose-500" />}</span>
+              <span className="flex items-center gap-2 font-bold"><span className="min-w-0 break-words">{n.title}</span>{!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-rose-500" />}</span>
               <span className="mt-0.5 block text-sm text-ink/65">{n.body}</span>
               <span className="mt-1 block text-[11px] text-ink/40">{new Date(n.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
             </span>

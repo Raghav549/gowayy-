@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
+import { eq, sql } from "drizzle-orm";
+import { db, pool } from "@/db";
 import { users } from "@/db/schema";
 
 const SECRET = process.env.AUTH_SECRET ?? "gowayy-local-secret-change-me-in-production";
@@ -68,11 +68,32 @@ export type SessionUser = {
   role: string;
   wallet: number;
   address: string;
+  /** versioned URL of the profile photo, or "" when the user has none */
+  avatar: string;
 };
+
+const g = globalThis as typeof globalThis & { __gwAvatarCol?: Promise<void> };
+
+/** Adds the `users.avatar` column on databases created before profile photos existed. */
+export function ensureAvatarColumn(): Promise<void> {
+  if (!g.__gwAvatarCol) {
+    g.__gwAvatarCol = pool
+      .query(`alter table users add column if not exists avatar text not null default ''`)
+      .then(() => undefined)
+      .catch((e) => {
+        g.__gwAvatarCol = undefined;
+        throw e;
+      });
+  }
+  return g.__gwAvatarCol;
+}
+
+export const avatarUrl = (version: string | null | undefined) => (version ? `/api/profile/avatar?v=${version}` : "");
 
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const uid = await readUserId();
   if (!uid) return null;
+  await ensureAvatarColumn();
   const [u] = await db
     .select({
       id: users.id,
@@ -82,9 +103,12 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
       role: users.role,
       wallet: users.wallet,
       address: users.address,
+      avatarV: sql<string>`case when ${users.avatar} = '' then '' else substr(md5(${users.avatar}), 1, 12) end`,
     })
     .from(users)
     .where(eq(users.id, uid))
     .limit(1);
-  return u ?? null;
+  if (!u) return null;
+  const { avatarV, ...rest } = u;
+  return { ...rest, avatar: avatarUrl(avatarV) };
 });

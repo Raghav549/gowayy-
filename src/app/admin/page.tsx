@@ -36,7 +36,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     if (tab === "orders") {
       const rows = await db.select({ o: orders, u: users.name, v: vendors.name }).from(orders).innerJoin(users, eq(users.id, orders.userId)).innerJoin(vendors, eq(vendors.id, orders.vendorId)).orderBy(desc(orders.id)).limit(50);
       return (
-        <div className="grid gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           {rows.length === 0 && <p className="glass rounded-3xl p-6 text-sm text-ink/60">No orders yet.</p>}
           {rows.map(({ o, u, v }) => (
             <div key={o.id} className="glass-strong flex flex-wrap items-center gap-3 rounded-3xl p-4">
@@ -52,7 +52,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     if (tab === "bookings") {
       const rows = await db.select({ b: bookings, u: users.name }).from(bookings).innerJoin(users, eq(users.id, bookings.userId)).orderBy(desc(bookings.id)).limit(50);
       return (
-        <div className="grid gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           {rows.length === 0 && <p className="glass rounded-3xl p-6 text-sm text-ink/60">No bookings yet.</p>}
           {rows.map(({ b, u }) => (
             <div key={b.id} className="glass-strong flex flex-wrap items-center gap-3 rounded-3xl p-4">
@@ -71,7 +71,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         db.select({ p: products, v: vendors.name }).from(products).innerJoin(vendors, eq(vendors.id, products.vendorId)).orderBy(desc(products.id)).limit(40),
       ]);
       return (
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <ProductForm vendors={vs} />
           <div className="glass-strong rounded-[32px] p-4">
             <h3 className="font-display mb-2 px-1 text-xl font-semibold">Latest catalogue</h3>
@@ -89,7 +89,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       );
     }
     if (tab === "users") {
-      const rows = await db.select().from(users).orderBy(desc(users.id)).limit(100);
+      const rows = await db
+        .select({ id: users.id, name: users.name, role: users.role, email: users.email, createdAt: users.createdAt, wallet: users.wallet })
+        .from(users)
+        .orderBy(desc(users.id))
+        .limit(100);
       return (
         <div className="glass-strong divide-y divide-brand-100 rounded-[32px] px-4">
           {rows.map((u) => (
@@ -121,7 +125,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     });
     const max = Math.max(1, ...days.map((d) => d.sum));
     return (
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="glass-strong rounded-[32px] p-5">
           <h3 className="font-display text-xl font-semibold">Revenue · last 7 days</h3>
           <div className="mt-5 flex h-48 items-end gap-3">

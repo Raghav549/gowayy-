@@ -36,12 +36,12 @@ export function Stepper({ id }: { id: number }) {
   const q = qtyOf(id);
   if (!q)
     return (
-      <button onClick={() => setQty(id, 1)} aria-label="Add to bag" className="flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-bold shadow-md ring-1 ring-brand-100 transition hover:bg-brand-50 active:scale-90">
+      <button onClick={() => setQty(id, 1)} aria-label="Add to bag" className="ml-auto flex h-10 shrink-0 items-center gap-1 rounded-full bg-white px-3 text-xs font-bold shadow-md ring-1 ring-brand-100 transition hover:bg-brand-50 active:scale-90">
         Add <Plus size={14} />
       </button>
     );
   return (
-    <div className="anim-pop flex h-10 items-center gap-1 rounded-full bg-ink px-1 text-white shadow-md">
+    <div className="anim-pop ml-auto flex h-10 shrink-0 items-center gap-1 rounded-full bg-ink px-1 text-white shadow-md">
       <button onClick={() => setQty(id, q - 1)} aria-label="Remove one" className="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/15 active:scale-75">
         <Minus size={14} />
       </button>
@@ -71,10 +71,10 @@ export function ProductCard({ p, i = 0, vendor }: { p: ProductLite; i?: number; 
           <h3 className="line-clamp-2 text-[13px] font-bold leading-snug">{p.name}</h3>
         </div>
         <p className="mt-0.5 text-[11px] text-ink/50">{vendor ? `${vendor} · ` : ""}{p.unit}</p>
-        <div className="mt-auto flex items-center justify-between pt-2.5">
-          <p className="leading-none">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-2 pt-2.5">
+          <p className="flex min-w-0 flex-col leading-none">
             <span className="font-display text-lg font-semibold">{inr(p.price)}</span>
-            {off > 0 && <span className="ml-1 text-[11px] text-ink/40 line-through">{inr(p.mrp)}</span>}
+            {off > 0 && <span className="mt-0.5 text-[11px] text-ink/40 line-through">{inr(p.mrp)}</span>}
           </p>
           {p.available && <Stepper id={p.id} />}
         </div>

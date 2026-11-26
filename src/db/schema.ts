@@ -19,6 +19,8 @@ export const users = pgTable("users", {
   role: text("role").default("user").notNull(),
   wallet: integer("wallet").default(0).notNull(),
   address: text("address").default("").notNull(),
+  // profile photo stored as a compressed data URL (resized client-side, max ~300 KB)
+  avatar: text("avatar").default("").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

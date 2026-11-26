@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { desc, eq, inArray } from "drizzle-orm";
-import { ChevronRight } from "lucide-react";
+import { Bike, ChevronRight } from "lucide-react";
 import { db } from "@/db";
 import { orderItems, orders, vendors } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
@@ -27,7 +27,7 @@ export default async function OrdersPage() {
     <div className="page">
       <PageHeader title="My orders" sub="Groceries, food & shop orders" />
       {list.length ? (
-        <div className="mx-auto grid max-w-3xl gap-3">
+        <div className="mx-auto grid grid-cols-1 max-w-3xl gap-3">
           {list.map((o, i) => {
             const its = items.filter((x) => x.orderId === o.id);
             const v = vs.find((x) => x.id === o.vendorId);
@@ -53,7 +53,7 @@ export default async function OrdersPage() {
           })}
         </div>
       ) : (
-        <Empty emoji="🛵" title="No orders yet" text="Order groceries or momos and track your rider live." href="/grocery" cta="Start shopping" />
+        <Empty icon={Bike} title="No orders yet" text="Order groceries or momos and track your rider live." href="/grocery" cta="Start shopping" />
       )}
     </div>
   );

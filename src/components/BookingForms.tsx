@@ -3,14 +3,15 @@
 import { useState } from "react";
 import { CarTaxiFront, Minus, Plus, X } from "lucide-react";
 import { BookingPanel } from "@/components/BookingPanel";
+import { Portal } from "@/components/Portal";
 import { inr, nightsBetween, todayISO } from "@/lib/utils";
 import { TAX } from "@/lib/pricing";
 
 function Counter({ label, value, set, min = 1, max = 20 }: { label: string; value: number; set: (n: number) => void; min?: number; max?: number }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-2.5 ring-1 ring-brand-100">
-      <span className="text-sm font-semibold">{label}</span>
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between gap-2 rounded-2xl bg-white/70 px-4 py-2.5 ring-1 ring-brand-100">
+      <span className="min-w-0 truncate text-sm font-semibold">{label}</span>
+      <div className="flex shrink-0 items-center gap-2">
         <button type="button" onClick={() => set(Math.max(min, value - 1))} className="grid h-8 w-8 place-items-center rounded-full bg-lav transition active:scale-75" aria-label={`Fewer ${label}`}><Minus size={14} /></button>
         <span className="w-6 text-center font-bold tabular-nums">{value}</span>
         <button type="button" onClick={() => set(Math.min(max, value + 1))} className="grid h-8 w-8 place-items-center rounded-full bg-lav transition active:scale-75" aria-label={`More ${label}`}><Plus size={14} /></button>
@@ -22,12 +23,12 @@ function Counter({ label, value, set, min = 1, max = 20 }: { label: string; valu
 function CabAddon({ on, set, fare, label }: { on: boolean; set: (b: boolean) => void; fare: number; label: string }) {
   return (
     <button type="button" onClick={() => set(!on)} className={`flex w-full items-center gap-3 rounded-2xl p-3.5 text-left ring-1 transition ${on ? "bg-brand-50 ring-2 ring-brand-500" : "bg-white/70 ring-brand-100"}`}>
-      <span className={`grid h-10 w-10 place-items-center rounded-xl ${on ? "bg-brand-600 text-white" : "bg-amber-100 text-amber-700"}`}><CarTaxiFront size={18} /></span>
-      <span className="flex-1">
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${on ? "bg-brand-600 text-white" : "bg-amber-100 text-amber-700"}`}><CarTaxiFront size={18} /></span>
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-bold">{label}</span>
         <span className="block text-xs text-ink/55">NJP pickup & drop · 5% bundle discount · ~{inr(fare)}</span>
       </span>
-      <span className={`relative h-6 w-11 rounded-full transition ${on ? "bg-brand-600" : "bg-ink/15"}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} /></span>
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-brand-600" : "bg-ink/15"}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} /></span>
     </button>
   );
 }
@@ -76,12 +77,12 @@ export function HotelBooking({ hotel, sedanFare, suvFare }: { hotel: { id: numbe
     <div className="space-y-3">
       <div className="glass-strong space-y-3 rounded-[32px] p-5">
         <h3 className="font-display text-xl font-semibold">Reserve your stay</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block">
+        <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+          <label className="block min-w-0">
             <span className="mb-1 block text-xs font-bold text-ink/55">Check-in</span>
             <input type="date" min={todayISO()} value={inD} onChange={(e) => { setIn(e.target.value); if (outD <= e.target.value) setOut(new Date(new Date(e.target.value).getTime() + 86400000).toISOString().slice(0, 10)); }} className="input" />
           </label>
-          <label className="block">
+          <label className="block min-w-0">
             <span className="mb-1 block text-xs font-bold text-ink/55">Check-out</span>
             <input type="date" min={inD} value={outD} onChange={(e) => setOut(e.target.value)} className="input" />
           </label>
@@ -113,15 +114,16 @@ export function ExperienceButton({ exp, vendor }: { exp: { id: number; name: str
     <>
       <button onClick={() => setOpen(true)} className="btn btn-dark btn-sm">Book</button>
       {open && (
-        <div className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center">
+        <Portal>
+        <div className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={exp.name}>
           <div className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="sheet-up glass-strong relative max-h-[92vh] w-full max-w-md space-y-3 overflow-auto rounded-t-[36px] p-5 sm:rounded-[36px]">
-            <div className="flex items-start justify-between">
-              <div>
+          <div className="sheet-up glass-strong relative max-h-[92dvh] w-full max-w-md space-y-3 overflow-y-auto overscroll-contain rounded-t-[36px] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:rounded-[36px]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <h3 className="font-display text-2xl font-semibold leading-tight">{exp.name}</h3>
                 <p className="text-sm text-ink/55">{vendor} · {inr(exp.price)} {exp.unit}</p>
               </div>
-              <button onClick={() => setOpen(false)} aria-label="Close" className="grid h-10 w-10 place-items-center rounded-full bg-ink/5"><X size={18} /></button>
+              <button onClick={() => setOpen(false)} aria-label="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5"><X size={18} /></button>
             </div>
             <label className="block">
               <span className="mb-1 block text-xs font-bold text-ink/55">Date</span>
@@ -140,6 +142,7 @@ export function ExperienceButton({ exp, vendor }: { exp: { id: number; name: str
             />
           </div>
         </div>
+        </Portal>
       )}
     </>
   );

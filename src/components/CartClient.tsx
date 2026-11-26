@@ -76,7 +76,7 @@ export function CartClient({ lines, address: initialAddress }: { lines: CartLine
     );
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         {perVendor.map(({ g, sub, fee, min }) => (
           <section key={g[0].vendorId} className="anim-up">
@@ -135,7 +135,7 @@ export function CartClient({ lines, address: initialAddress }: { lines: CartLine
             <div className="flex items-baseline justify-between"><span className="text-ink/60">Sub total</span><span className="font-display text-lg font-semibold">{inr(subtotal)}</span></div>
             <div className="flex items-baseline justify-between"><span className="text-ink/60">Delivery</span><span className="font-display text-lg font-semibold">{delivery ? inr(delivery) : "Free"}</span></div>
             {discount > 0 && <div className="flex items-baseline justify-between text-emerald-600"><span>Promo {applied?.code}</span><span className="font-display text-lg font-semibold">−{inr(discount)}</span></div>}
-            {saved > 0 && <p className="rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">🎉 You&apos;re saving {inr(saved + discount)} on this order</p>}
+            {saved > 0 && <p className="rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">You&apos;re saving {inr(saved + discount)} on this order</p>}
             <div className="flex items-baseline justify-between border-t border-dashed border-brand-200 pt-3"><span className="font-semibold">Total</span><span className="font-display text-3xl font-semibold">{inr(total)}</span></div>
           </div>
 

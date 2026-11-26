@@ -12,6 +12,7 @@ export type AppUser = {
   role: string;
   wallet: number;
   address: string;
+  avatar: string;
 } | null;
 
 type ToastItem = { id: number; msg: string; tone: "ok" | "err" };

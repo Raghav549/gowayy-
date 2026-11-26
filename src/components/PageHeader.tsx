@@ -12,8 +12,8 @@ export function PageHeader({ title, sub, right }: { title: string; sub?: string;
         <ArrowLeft size={20} />
       </button>
       <div className="min-w-0 flex-1 text-center sm:text-left">
-        <h1 className="font-display truncate text-xl font-semibold sm:text-2xl">{title}</h1>
-        {sub && <p className="truncate text-xs text-ink/55">{sub}</p>}
+        <h1 className="font-display line-clamp-2 text-xl font-semibold leading-tight [overflow-wrap:anywhere] sm:text-2xl">{title}</h1>
+        {sub && <p className="mt-0.5 line-clamp-2 text-xs text-ink/55">{sub}</p>}
       </div>
       <div className="flex min-w-12 justify-end">{right}</div>
     </div>

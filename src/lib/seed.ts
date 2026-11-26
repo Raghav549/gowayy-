@@ -11,7 +11,7 @@ import {
   products,
   coupons,
 } from "@/db/schema";
-import { hashPassword } from "@/lib/auth";
+import { ensureAvatarColumn, hashPassword } from "@/lib/auth";
 import { pick, type PoolKey } from "@/lib/images";
 
 const g = globalThis as typeof globalThis & { __gwSeed?: Promise<void> };
@@ -36,6 +36,7 @@ const slugify = (s: string) =>
 const rate = (i: number, base = 4.2) => Math.min(4.9, Math.round((base + ((i * 37 + 11) % 8) / 10) * 10) / 10);
 
 async function run() {
+  await ensureAvatarColumn();
   const client = await pool.connect();
   try {
     await client.query("select pg_advisory_lock(727272)");

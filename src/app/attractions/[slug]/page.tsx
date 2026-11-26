@@ -38,7 +38,7 @@ export default async function AttractionPage({ params }: { params: Promise<{ slu
         <Fact icon={<MapPin size={18} />} label="Area" value={dest?.name ?? ""} />
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="glass rounded-[28px] p-5">
           <h3 className="font-display text-xl font-semibold">About</h3>
           <p className="mt-2 text-[15px] leading-relaxed text-ink/75">{a.description}</p>
@@ -51,7 +51,7 @@ export default async function AttractionPage({ params }: { params: Promise<{ slu
             <h3 className="font-display text-xl font-semibold">Plan your visit</h3>
             <p className="mt-1 text-sm text-ink/60">Get there, stay close and eat well — all from gowayy.</p>
           </div>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 gap-2">
             <Link href={`/cabs?to=${a.locationId}`} className="btn btn-brand"><CarTaxiFront size={17} /> Book a cab here</Link>
             <Link href={`/hotels?dest=${dest?.slug}`} className="btn btn-light">Stays near {dest?.name}</Link>
             <Link href="/tours" className="btn btn-light">Tours including {dest?.name}</Link>

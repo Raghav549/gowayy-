@@ -23,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   if (!/^\S+@\S+\.\S+$/.test(email)) return fail("Enter a valid email address");
 
   if (action === "login") {
-    const [u] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const [u] = await db.select({ id: users.id, role: users.role, passwordHash: users.passwordHash }).from(users).where(eq(users.email, email)).limit(1);
     if (!u || !verifyPassword(password, u.passwordHash)) return fail("Incorrect email or password", 401);
     await createSession(u.id);
     return ok({ role: u.role });
@@ -38,9 +38,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
     const [u] = await db
       .insert(users)
       .values({ name, email, phone: String(b.phone ?? "").trim(), passwordHash: hashPassword(password), wallet: 500 })
-      .returning();
+      .returning({ id: users.id, role: users.role });
     await db.insert(payments).values({ userId: u.id, kind: "bonus", refCode: "welcome", amount: 500, method: "wallet", status: "paid", txnId: `bonus_${u.id}` });
-    await notify(u.id, "Welcome to gowayy 🎉", "₹500 welcome credits have been added to your wallet. Start exploring the hills!", "promo", "/explore");
+    await notify(u.id, "Welcome to gowayy", "₹500 welcome credits have been added to your wallet. Start exploring the hills!", "promo", "/explore");
     await createSession(u.id);
     return ok({ role: u.role });
   }

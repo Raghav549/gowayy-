@@ -82,7 +82,7 @@ export function OrderTracker({ initial }: { initial: OrderPayload }) {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-2">
+    <div className="mx-auto grid grid-cols-1 max-w-5xl gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         <div className="glass-strong relative overflow-hidden rounded-[36px] p-6 text-center">
           <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-brand-300/50 blur-3xl" />
