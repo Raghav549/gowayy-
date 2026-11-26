@@ -46,8 +46,12 @@ export function BookingPanel({
     }
   }
 
+  // Re-price an applied coupon when the amount changes (debounced, so rapid
+  // quantity taps make one request instead of one per tap).
   useEffect(() => {
-    if (applied) validate(applied.code, true);
+    if (!applied) return;
+    const t = setTimeout(() => validate(applied.code, true), 300);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal]);
 

@@ -1,27 +1,25 @@
 import crypto from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
+import { eq, sql } from "drizzle-orm";
+import { databaseUrl, db } from "@/db";
+import { ensureSeeded } from "@/lib/seed";
 import { users } from "@/db/schema";
 
-const SECRET = process.env.AUTH_SECRET ?? "gowayy-local-secret-change-me-in-production";
+/**
+ * Session-signing key. Set AUTH_SECRET in production. Without it, a key is
+ * derived from the (secret) database URL so a fresh deployment still has a
+ * private, stable key instead of a public default.
+ */
+const SECRET =
+  process.env.AUTH_SECRET ||
+  (databaseUrl()
+    ? crypto.createHash("sha256").update(`gowayy-session:${databaseUrl()}`).digest("hex")
+    : "gowayy-local-dev-secret");
 const COOKIE = "gw_session";
 const MAX_AGE = 60 * 60 * 24 * 30;
 
-export function hashPassword(pw: string) {
-  const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(pw, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-export function verifyPassword(pw: string, stored: string) {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const test = crypto.scryptSync(pw, salt, 64);
-  const orig = Buffer.from(hash, "hex");
-  return orig.length === test.length && crypto.timingSafeEqual(orig, test);
-}
+export { hashPassword, verifyPassword } from "@/lib/password";
 
 function sign(value: string) {
   return crypto.createHmac("sha256", SECRET).update(value).digest("base64url");
@@ -68,11 +66,16 @@ export type SessionUser = {
   role: string;
   wallet: number;
   address: string;
+  /** versioned URL of the profile photo, or "" when the user has none */
+  avatar: string;
 };
+
+export const avatarUrl = (version: string | null | undefined) => (version ? `/api/profile/avatar?v=${version}` : "");
 
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const uid = await readUserId();
   if (!uid) return null;
+  await ensureSeeded();
   const [u] = await db
     .select({
       id: users.id,
@@ -82,9 +85,12 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
       role: users.role,
       wallet: users.wallet,
       address: users.address,
+      avatarV: sql<string>`case when ${users.avatar} = '' then '' else substr(md5(${users.avatar}), 1, 12) end`,
     })
     .from(users)
     .where(eq(users.id, uid))
     .limit(1);
-  return u ?? null;
+  if (!u) return null;
+  const { avatarV, ...rest } = u;
+  return { ...rest, avatar: avatarUrl(avatarV) };
 });

@@ -66,7 +66,7 @@ export function ProductForm({ vendors }: { vendors: { id: number; name: string }
   const [busy, setBusy] = useState(false);
   return (
     <form
-      className="glass-strong grid gap-2.5 rounded-[32px] p-5 sm:grid-cols-2"
+      className="glass-strong grid grid-cols-1 gap-2.5 rounded-[32px] p-5 sm:grid-cols-2"
       onSubmit={async (e) => {
         e.preventDefault();
         setBusy(true);

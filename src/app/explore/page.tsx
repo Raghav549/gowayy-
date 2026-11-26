@@ -28,7 +28,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
       <PageHeader title="Explore" sub="Destinations & things to do" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {dm.list.map((d, i) => (
-          <DestinationCard key={d.id} d={d} i={i} className="h-60 w-full sm:h-72" />
+          <DestinationCard key={d.id} d={d} i={i} className="min-h-60 w-full sm:min-h-72" />
         ))}
       </div>
 
@@ -46,7 +46,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
         ))}
       </div>
       {list.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((a, i) => (
             <AttractionCard key={a.id} a={a} i={i} dest={dm.byId[a.destinationId]?.name} className="w-full" />
           ))}

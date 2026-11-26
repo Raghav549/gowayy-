@@ -37,7 +37,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
         <Fact icon={<Star size={18} />} label="Rating" value={`${p.rating.toFixed(1)} / 5`} />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div>
           <h2 className="font-display text-2xl font-semibold">Highlights</h2>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -58,7 +58,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
           </ol>
 
           <h2 className="font-display mb-3 mt-8 text-2xl font-semibold">What&apos;s included</h2>
-          <div className="glass grid gap-2 rounded-3xl p-5 sm:grid-cols-2">
+          <div className="glass grid grid-cols-1 gap-2 rounded-3xl p-5 sm:grid-cols-2">
             {p.inclusions.map((x) => (
               <p key={x} className="flex items-center gap-2 text-sm font-semibold"><span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-100 text-emerald-600"><Check size={12} /></span>{x}</p>
             ))}

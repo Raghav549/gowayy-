@@ -16,15 +16,14 @@ export function AuthForm() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function submit(e?: React.FormEvent, override?: { email: string; password: string }) {
-    e?.preventDefault();
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setBusy(true);
     setErr("");
-    const payload = override ?? f;
-    const r = await fetch(`/api/auth/${override ? "login" : mode}`, {
+    const r = await fetch(`/api/auth/${mode}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(f),
     });
     const j = await r.json().catch(() => ({ ok: false, error: "Something went wrong" }));
     if (!j.ok) {
@@ -39,7 +38,7 @@ export function AuthForm() {
   const inp = "h-12 min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-ink/35";
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid grid-cols-1 min-h-screen lg:grid-cols-2">
       <div className="relative hidden overflow-hidden lg:block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={px(41192863, 1400)} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -64,7 +63,7 @@ export function AuthForm() {
             ))}
           </div>
 
-          <form onSubmit={(e) => submit(e)} className="mt-5 space-y-3">
+          <form onSubmit={submit} className="mt-5 space-y-3">
             {mode === "signup" && (
               <>
                 <label className={`${field} anim-up`}><User size={17} className="text-ink/40" /><input className={inp} placeholder="Full name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required /></label>
@@ -79,13 +78,6 @@ export function AuthForm() {
             </button>
           </form>
 
-          <div className="mt-6 rounded-3xl border border-dashed border-brand-300 bg-white/50 p-4">
-            <p className="text-xs font-bold text-brand-700">Try it instantly</p>
-            <div className="mt-2 flex gap-2">
-              <button disabled={busy} onClick={() => submit(undefined, { email: "demo@gowayy.in", password: "demo1234" })} className="btn btn-light btn-sm flex-1">Demo traveller</button>
-              <button disabled={busy} onClick={() => submit(undefined, { email: "admin@gowayy.in", password: "admin123" })} className="btn btn-light btn-sm flex-1">Admin dashboard</button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

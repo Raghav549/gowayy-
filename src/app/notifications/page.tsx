@@ -1,3 +1,4 @@
+import { BellOff } from "lucide-react";
 import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -17,7 +18,7 @@ export default async function NotificationsPage() {
   return (
     <div className="page">
       <PageHeader title="Notifications" sub="Orders, trips & offers" />
-      {list.length ? <NotificationList items={list} /> : <Empty emoji="🔔" title="All caught up" text="Order updates and offers will appear here." href="/explore" />}
+      {list.length ? <NotificationList items={list} /> : <Empty icon={BellOff} title="All caught up" text="Order updates and offers will appear here." href="/explore" />}
     </div>
   );
 }

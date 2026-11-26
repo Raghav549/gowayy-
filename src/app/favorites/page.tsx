@@ -1,3 +1,4 @@
+import { Heart } from "lucide-react";
 import { redirect } from "next/navigation";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
@@ -30,14 +31,14 @@ export default async function FavoritesPage() {
     <div className="page">
       <PageHeader title="Saved" sub={`${total} favourite${total === 1 ? "" : "s"}`} />
       {total === 0 ? (
-        <Empty emoji="💜" title="Nothing saved yet" text="Tap the heart on any destination, stay, tour or store to keep it here." href="/explore" />
+        <Empty icon={Heart} title="Nothing saved yet" text="Tap the heart on any destination, stay, tour or store to keep it here." href="/explore" />
       ) : (
         <>
-          {ds.length > 0 && (<><SectionHead title="Destinations" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{ds.map((d, i) => <DestinationCard key={d.id} d={d} i={i} className="h-60 w-full" />)}</div></>)}
-          {ps.length > 0 && (<><SectionHead title="Tours" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{ps.map((p, i) => <PackageCard key={p.id} p={p} i={i} className="w-full" dests={p.destinationIds.map((x) => names[x]).join(" · ")} />)}</div></>)}
-          {hs.length > 0 && (<><SectionHead title="Stays" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{hs.map((h, i) => <HotelCard key={h.id} h={h} i={i} className="w-full" dest={names[h.destinationId]} />)}</div></>)}
-          {as.length > 0 && (<><SectionHead title="Attractions" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{as.map((a, i) => <AttractionCard key={a.id} a={a} i={i} className="w-full" dest={names[a.destinationId]} />)}</div></>)}
-          {vs.length > 0 && (<><SectionHead title="Stores & restaurants" /><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{vs.map((v, i) => <VendorCard key={v.id} v={v} i={i} className="w-full" dest={names[v.destinationId]} />)}</div></>)}
+          {ds.length > 0 && (<><SectionHead title="Destinations" /><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{ds.map((d, i) => <DestinationCard key={d.id} d={d} i={i} className="min-h-60 w-full" />)}</div></>)}
+          {ps.length > 0 && (<><SectionHead title="Tours" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{ps.map((p, i) => <PackageCard key={p.id} p={p} i={i} className="w-full" dests={p.destinationIds.map((x) => names[x]).join(" · ")} />)}</div></>)}
+          {hs.length > 0 && (<><SectionHead title="Stays" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{hs.map((h, i) => <HotelCard key={h.id} h={h} i={i} className="w-full" dest={names[h.destinationId]} />)}</div></>)}
+          {as.length > 0 && (<><SectionHead title="Attractions" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{as.map((a, i) => <AttractionCard key={a.id} a={a} i={i} className="w-full" dest={names[a.destinationId]} />)}</div></>)}
+          {vs.length > 0 && (<><SectionHead title="Stores & restaurants" /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{vs.map((v, i) => <VendorCard key={v.id} v={v} i={i} className="w-full" dest={names[v.destinationId]} />)}</div></>)}
         </>
       )}
     </div>

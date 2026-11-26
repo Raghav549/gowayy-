@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Img } from "@/components/Img";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { CalendarCheck, IndianRupee, Receipt, Users } from "lucide-react";
@@ -36,11 +37,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     if (tab === "orders") {
       const rows = await db.select({ o: orders, u: users.name, v: vendors.name }).from(orders).innerJoin(users, eq(users.id, orders.userId)).innerJoin(vendors, eq(vendors.id, orders.vendorId)).orderBy(desc(orders.id)).limit(50);
       return (
-        <div className="grid gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           {rows.length === 0 && <p className="glass rounded-3xl p-6 text-sm text-ink/60">No orders yet.</p>}
           {rows.map(({ o, u, v }) => (
             <div key={o.id} className="glass-strong flex flex-wrap items-center gap-3 rounded-3xl p-4">
-              <div className="min-w-0 flex-1"><Link href={`/orders/${o.code}`} className="font-bold text-brand-700">{o.code}</Link><p className="text-xs text-ink/55">{u} · {v} · {timeAgo(o.createdAt)}</p></div>
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1"><Link href={`/orders/${o.code}`} className="font-bold text-brand-700">{o.code}</Link><p className="break-words text-xs text-ink/55">{u} · {v} · {timeAgo(o.createdAt)}</p></div>
               <span className="font-display font-semibold">{inr(o.total)}</span>
               <StatusPill status={o.paymentStatus} />
               <StatusSelect kind="order-status" id={o.id} status={o.status} options={[...ORDER_FLOW, "cancelled"]} />
@@ -52,11 +53,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     if (tab === "bookings") {
       const rows = await db.select({ b: bookings, u: users.name }).from(bookings).innerJoin(users, eq(users.id, bookings.userId)).orderBy(desc(bookings.id)).limit(50);
       return (
-        <div className="grid gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5">
           {rows.length === 0 && <p className="glass rounded-3xl p-6 text-sm text-ink/60">No bookings yet.</p>}
           {rows.map(({ b, u }) => (
             <div key={b.id} className="glass-strong flex flex-wrap items-center gap-3 rounded-3xl p-4">
-              <div className="min-w-0 flex-1"><Link href={`/bookings/${b.code}`} className="font-bold text-brand-700">{b.code}</Link> <span className="text-[10px] font-bold uppercase text-ink/45">{b.type}</span><p className="line-clamp-1 text-xs text-ink/55">{b.title} · {u} · {b.startDate}</p></div>
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1"><Link href={`/bookings/${b.code}`} className="font-bold text-brand-700">{b.code}</Link> <span className="text-[10px] font-bold uppercase text-ink/45">{b.type}</span><p className="line-clamp-2 break-words text-xs text-ink/55">{b.title} · {u} · {b.startDate}</p></div>
               <span className="font-display font-semibold">{inr(b.amount)}</span>
               <StatusPill status={b.paymentStatus} />
               <StatusSelect kind="booking-status" id={b.id} status={b.status} options={["confirmed", "completed", "cancelled"]} />
@@ -71,14 +72,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         db.select({ p: products, v: vendors.name }).from(products).innerJoin(vendors, eq(vendors.id, products.vendorId)).orderBy(desc(products.id)).limit(40),
       ]);
       return (
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
           <ProductForm vendors={vs} />
           <div className="glass-strong rounded-[32px] p-4">
             <h3 className="font-display mb-2 px-1 text-xl font-semibold">Latest catalogue</h3>
             <div className="divide-y divide-brand-100">
               {rows.map(({ p, v }) => (
                 <div key={p.id} className="flex items-center gap-3 py-2.5">
-                  <span className="text-2xl">{p.emoji}</span>
+                  {p.image ? <Img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center text-2xl">{p.emoji}</span>}
                   <div className="min-w-0 flex-1"><p className="line-clamp-1 text-sm font-bold">{p.name}</p><p className="line-clamp-1 text-xs text-ink/50">{v} · {inr(p.price)}</p></div>
                   <ProductToggle id={p.id} available={p.available} />
                 </div>
@@ -89,7 +90,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       );
     }
     if (tab === "users") {
-      const rows = await db.select().from(users).orderBy(desc(users.id)).limit(100);
+      const rows = await db
+        .select({ id: users.id, name: users.name, role: users.role, email: users.email, createdAt: users.createdAt, wallet: users.wallet })
+        .from(users)
+        .orderBy(desc(users.id))
+        .limit(100);
       return (
         <div className="glass-strong divide-y divide-brand-100 rounded-[32px] px-4">
           {rows.map((u) => (
@@ -105,8 +110,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     if (tab === "broadcast") return <BroadcastForm />;
 
     // overview
-    const since = new Date(Date.now() - 6 * 86400000);
-    since.setHours(0, 0, 0, 0);
+    const since = startOfDayDaysAgo(6);
     const [ro, rb, top, recent] = await Promise.all([
       db.select({ t: orders.total, c: orders.createdAt }).from(orders).where(and(ne(orders.status, "cancelled"), gte(orders.createdAt, since))),
       db.select({ t: bookings.amount, c: bookings.createdAt }).from(bookings).where(and(ne(bookings.status, "cancelled"), gte(bookings.createdAt, since))),
@@ -121,7 +125,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     });
     const max = Math.max(1, ...days.map((d) => d.sum));
     return (
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="glass-strong rounded-[32px] p-5">
           <h3 className="font-display text-xl font-semibold">Revenue · last 7 days</h3>
           <div className="mt-5 flex h-48 items-end gap-3">
@@ -165,4 +169,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {body}
     </div>
   );
+}
+
+/** Midnight `days` days ago — the start of the overview's 7-day window. */
+function startOfDayDaysAgo(days: number) {
+  const d = new Date(Date.now() - days * 86400000);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }

@@ -39,13 +39,18 @@ export function OrderTracker({ initial }: { initial: OrderPayload }) {
   const { toast } = useApp();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  // Clock for the delivery ETA: set on mount, then ticked by the status poll below.
+  const [now, setNow] = useState(() => new Date(initial.order.createdAt).getTime());
   const last = useRef(initial.order.status);
   const { order: o, items, events, vendor } = data;
   const final = o.status === "delivered" || o.status === "cancelled";
 
   useEffect(() => {
     if (final) return;
+    const tick = () => setNow(Date.now());
+    const t0 = setTimeout(tick, 0);
     const t = setInterval(async () => {
+      tick();
       try {
         const r = await fetch(`/api/orders/${o.code}`, { cache: "no-store" });
         const j = await r.json();
@@ -59,13 +64,16 @@ export function OrderTracker({ initial }: { initial: OrderPayload }) {
         }
       } catch {}
     }, 4000);
-    return () => clearInterval(t);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(t);
+    };
   }, [final, o.code, toast, router]);
 
   const step = Math.max(0, STEPS.findIndex((s) => s[0] === o.status));
   const pct = o.status === "cancelled" ? 0 : (step / (STEPS.length - 1)) * 100;
   const [h1, h2] = HEAD[o.status] ?? HEAD.placed;
-  const eta = Math.max(1, vendor.etaMins - Math.round(((Date.now() - new Date(o.createdAt).getTime()) / 60000) * 4));
+  const eta = Math.max(1, vendor.etaMins - Math.round(((now - new Date(o.createdAt).getTime()) / 60000) * 4));
 
   async function cancel() {
     if (!confirm("Cancel this order?")) return;
@@ -82,7 +90,7 @@ export function OrderTracker({ initial }: { initial: OrderPayload }) {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-2">
+    <div className="mx-auto grid grid-cols-1 max-w-5xl gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         <div className="glass-strong relative overflow-hidden rounded-[36px] p-6 text-center">
           <div className="pointer-events-none absolute -top-16 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-brand-300/50 blur-3xl" />

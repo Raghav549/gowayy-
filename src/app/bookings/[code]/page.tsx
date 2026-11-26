@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, asc, eq, ne } from "drizzle-orm";
-import { CarTaxiFront, KeyRound, MapPin, Phone, ShoppingBasket, UtensilsCrossed, Compass, PartyPopper } from "lucide-react";
+import { CarTaxiFront, KeyRound, MapPin, Phone, ShoppingBasket, UtensilsCrossed, Compass, CheckCircle2 } from "lucide-react";
 import { db } from "@/db";
 import { bookings, hotels, locations } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
@@ -52,11 +52,11 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
       <PageHeader title="Booking" sub={b.code} />
       {sp.new && (
         <div className="anim-pop mb-5 flex items-center gap-3 rounded-[28px] bg-gradient-to-r from-emerald-500 to-teal-500 p-4 text-white shadow-xl shadow-emerald-500/30">
-          <PartyPopper size={28} />
-          <div><p className="font-display text-xl font-semibold">Booking confirmed!</p><p className="text-sm text-white/85">Scroll down — we&apos;ve lined up the rest of your trip.</p></div>
+          <CheckCircle2 size={28} className="shrink-0" aria-hidden />
+          <div className="min-w-0"><p className="font-display text-xl font-semibold">Booking confirmed!</p><p className="text-sm text-white/85">Scroll down — we&apos;ve lined up the rest of your trip.</p></div>
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="space-y-4">
           <div className="glass-strong anim-up overflow-hidden rounded-[36px]">
             <div className="relative h-52"><Img src={b.image} alt={b.title} className="h-full w-full object-cover" eager />
