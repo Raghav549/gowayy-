@@ -2,7 +2,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { body, fail, ok, needUser } from "@/lib/api";
-import { avatarUrl, ensureAvatarColumn } from "@/lib/auth";
+import { avatarUrl } from "@/lib/auth";
+import { ensureSeeded } from "@/lib/seed";
 import crypto from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ const DATA_URL = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/;
 export async function GET() {
   const u = await needUser();
   if (!u) return new Response(null, { status: 401 });
-  await ensureAvatarColumn();
+  await ensureSeeded();
   const [row] = await db.select({ avatar: users.avatar }).from(users).where(eq(users.id, u.id)).limit(1);
   const m = row?.avatar.match(DATA_URL);
   if (!m) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   const m = image.match(DATA_URL);
   if (!m) return fail("Please choose a JPG, PNG or WebP image");
   if (Buffer.byteLength(m[2], "base64") > MAX_BYTES) return fail("That photo is too large — try a smaller one");
-  await ensureAvatarColumn();
+  await ensureSeeded();
   await db.update(users).set({ avatar: image }).where(eq(users.id, u.id));
   const v = crypto.createHash("md5").update(image).digest("hex").slice(0, 12);
   return ok({ avatar: avatarUrl(v) });
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const u = await needUser();
   if (!u) return fail("Please sign in", 401);
-  await ensureAvatarColumn();
+  await ensureSeeded();
   await db.update(users).set({ avatar: "" }).where(eq(users.id, u.id));
   return ok({ avatar: "" });
 }

@@ -53,21 +53,23 @@ export default async function HomePage() {
         </div>
       </header>
 
-      <div className="anim-up">
+      {/* raised so the suggestions dropdown paints above the categories and cards below */}
+      <div className="anim-up relative z-30">
         <SearchBox big placeholder="Search stays, food, tours…" />
       </div>
 
       <CategoryRail className="mt-5" />
 
       {hero && (
-        <Link href={`/tours/${hero.slug}`} className="anim-up group lift zoom relative mt-5 block h-48 overflow-hidden rounded-[30px] sm:h-60 lg:h-72" style={{ "--i": 2 } as React.CSSProperties}>
+        <Link href={`/tours/${hero.slug}`} className="anim-up group lift zoom relative mt-5 flex min-h-48 flex-col justify-between gap-6 overflow-hidden rounded-[30px] p-4 text-white sm:min-h-60 sm:p-6 lg:min-h-72" style={{ "--i": 2 } as React.CSSProperties}>
           <Img src={hero.image} alt={hero.name} className="absolute inset-0 h-full w-full object-cover" eager />
           <div className="absolute inset-0 bg-gradient-to-t from-[#14082e]/90 via-[#14082e]/35 to-transparent" />
-          <span className="glass-tint absolute left-4 top-4 rounded-full px-3 py-1.5 text-[11px] font-bold text-white">Trip of the week</span>
-          <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white sm:p-6">
-            <div className="min-w-0">
+          <span className="glass-tint relative self-start rounded-full px-3 py-1.5 text-[11px] font-bold">Trip of the week</span>
+          {/* In flow (not absolutely positioned) so the card grows with its text; the CTA wraps under the price when space is tight. */}
+          <div className="relative flex flex-wrap items-end justify-between gap-x-3 gap-y-3">
+            <div className="min-w-0 flex-[1_1_12rem]">
               <p className="text-xs text-white/75">{hero.days} days · {hero.theme}</p>
-              <h2 className="font-display line-clamp-2 text-2xl font-semibold leading-[1.05] sm:text-3xl">{hero.name}</h2>
+              <h2 className="font-display break-words text-2xl font-semibold leading-[1.05] sm:text-3xl">{hero.name}</h2>
               <p className="mt-1 text-sm font-semibold text-white/90">from {inr(hero.price)} /person</p>
             </div>
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-white px-4 py-2.5 text-xs font-bold text-ink transition group-hover:gap-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Logo } from "@/components/Logo";
@@ -24,21 +24,30 @@ const SLIDES = [
   },
 ];
 
+const noSubscribe = () => () => {};
+const readSeen = () => {
+  try {
+    return !!localStorage.getItem("gw_onboarded");
+  } catch {
+    return true; // storage blocked (private mode etc.): don't trap the user in onboarding
+  }
+};
+
 export function Onboarding() {
   const path = usePathname();
-  const [show, setShow] = useState(false);
+  // Read once on the client; the server snapshot says "seen" so nothing flashes during hydration.
+  const seen = useSyncExternalStore(noSubscribe, readSeen, () => true);
+  const [dismissed, setDismissed] = useState(false);
   const [i, setI] = useState(0);
 
-  useEffect(() => {
-    if (path === "/" && !localStorage.getItem("gw_onboarded")) setShow(true);
-  }, [path]);
-
-  if (!show) return null;
+  if (path !== "/" || seen || dismissed) return null;
   const s = SLIDES[i];
   const last = i === SLIDES.length - 1;
   const done = () => {
-    localStorage.setItem("gw_onboarded", "1");
-    setShow(false);
+    try {
+      localStorage.setItem("gw_onboarded", "1");
+    } catch {}
+    setDismissed(true);
   };
 
   return (

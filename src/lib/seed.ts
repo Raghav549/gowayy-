@@ -1,4 +1,6 @@
-import { db, pool } from "@/db";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { pool } from "@/db";
+import { CREATE_SCHEMA, SCHEMA_VERSION, UPGRADE_COLUMNS } from "@/db/schema-sql";
 import {
   users,
   destinations,
@@ -11,15 +13,21 @@ import {
   products,
   coupons,
 } from "@/db/schema";
-import { ensureAvatarColumn, hashPassword } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
 import { pick, type PoolKey } from "@/lib/images";
 
 const g = globalThis as typeof globalThis & { __gwSeed?: Promise<void> };
 
+/**
+ * Makes sure the database is ready: tables exist, columns are current and the
+ * catalogue is seeded. Runs once per server instance (the promise is cached)
+ * and is safe to call from anywhere, so a brand-new database — such as a
+ * freshly attached Vercel Postgres — works on the very first request.
+ */
 export function ensureSeeded(): Promise<void> {
   if (!g.__gwSeed) {
     g.__gwSeed = run().catch((e) => {
-      g.__gwSeed = undefined;
+      g.__gwSeed = undefined; // retry on the next request
       throw e;
     });
   }
@@ -35,16 +43,45 @@ const slugify = (s: string) =>
 
 const rate = (i: number, base = 4.2) => Math.min(4.9, Math.round((base + ((i * 37 + 11) % 8) / 10) * 10) / 10);
 
+const META = `CREATE TABLE IF NOT EXISTS "_gowayy_meta" ("key" text PRIMARY KEY, "value" text NOT NULL)`;
+
+async function isReady(): Promise<boolean> {
+  try {
+    const { rows } = await pool.query(
+      `select (select value from "_gowayy_meta" where key = 'schema') as v, exists(select 1 from destinations) as seeded`,
+    );
+    return rows[0]?.v === SCHEMA_VERSION && rows[0]?.seeded === true;
+  } catch {
+    return false; // tables missing → full bootstrap
+  }
+}
+
 async function run() {
-  await ensureAvatarColumn();
+  // Warm path: one round trip once the database is set up.
+  if (await isReady()) return;
+
   const client = await pool.connect();
   try {
-    await client.query("select pg_advisory_lock(727272)");
-    const { rows } = await client.query("select count(*)::int as n from destinations");
-    if (rows[0].n > 0) return;
-    await seedAll();
+    // Everything happens in one transaction under a transaction-scoped lock:
+    // concurrent cold starts wait for each other, a failure leaves nothing
+    // half-created, and it works behind PgBouncer-style poolers (Neon,
+    // Supabase) where session-level advisory locks are unreliable.
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(727272)");
+    for (const q of CREATE_SCHEMA) await client.query(q);
+    for (const q of UPGRADE_COLUMNS) await client.query(q);
+    const { rows } = await client.query("select exists(select 1 from destinations) as seeded");
+    if (!rows[0].seeded) await seedAll(drizzle(client));
+    await client.query(META);
+    await client.query(
+      `insert into "_gowayy_meta" (key, value) values ('schema', $1) on conflict (key) do update set value = excluded.value`,
+      [SCHEMA_VERSION],
+    );
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
   } finally {
-    await client.query("select pg_advisory_unlock(727272)").catch(() => {});
     client.release();
   }
 }
@@ -331,7 +368,7 @@ const SHOPS: Record<string, S[]> = {
   ],
 };
 
-async function seedAll() {
+async function seedAll(db: NodePgDatabase) {
   // users
   await db.insert(users).values([
     { name: "gowayy admin", email: "admin@gowayy.in", phone: "9000000001", passwordHash: hashPassword("admin123"), role: "admin", wallet: 0, address: "gowayy HQ, Chowrasta, Darjeeling" },

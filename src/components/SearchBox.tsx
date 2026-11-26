@@ -40,7 +40,7 @@ export function SearchBox({ big = false, placeholder = "Search hotels, momos, to
   }, []);
 
   return (
-    <div ref={box} className="relative w-full">
+    <div ref={box} className="relative z-30 w-full">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -79,7 +79,7 @@ export function SearchBox({ big = false, placeholder = "Search hotels, momos, to
         )}
       </form>
       {open && showHits.length > 0 && (
-        <div className="glass-strong anim-pop absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(24rem,60vh)] overflow-y-auto overscroll-contain rounded-3xl p-2">
+        <div className="glass-strong anim-pop absolute left-0 right-0 top-full z-50 mt-2 bg-white/95 shadow-xl max-h-[min(24rem,60vh)] overflow-y-auto overscroll-contain rounded-3xl p-2">
           {showHits.map((h, i) => (
             <Link key={i} href={h.href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-2xl p-2 transition hover:bg-brand-50">
               <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-brand-100 text-xl">

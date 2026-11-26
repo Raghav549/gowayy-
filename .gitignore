@@ -11,6 +11,10 @@
 next-env.d.ts
 
 # env & logs
+.env
 .env*.local
+
+# vercel
+.vercel
 npm-debug.log*
 .DS_Store

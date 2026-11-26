@@ -138,7 +138,7 @@ function PaymentSheetBody({
             <button onClick={pay} disabled={phase === "busy"} className="btn btn-dark mt-5 h-14 w-full text-base">
               {phase === "busy" ? <><Loader2 size={18} className="animate-spin" /> Processing…</> : method === "cod" ? "Confirm" : `Pay ${inr(amount)}`}
             </button>
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-ink/45"><ShieldCheck size={13} /> Secured by the gowayy sandbox gateway · no real money is charged</p>
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-ink/45"><ShieldCheck size={13} className="shrink-0" /> Secured by the gowayy sandbox gateway · no real money is charged</p>
           </>
         )}
       </div>

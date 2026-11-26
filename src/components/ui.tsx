@@ -55,11 +55,11 @@ export function Empty({ icon: Icon = Mountain, title, text, href, cta }: { icon?
 export function Stat({ label, value, icon }: { label: string; value: ReactNode; icon?: ReactNode }) {
   return (
     <div className="glass rounded-3xl p-4">
-      <div className="flex items-center justify-between text-ink/55">
-        <span className="text-[11px] font-bold uppercase tracking-wider">{label}</span>
-        {icon}
+      <div className="flex items-start justify-between gap-2 text-ink/55">
+        <span className="min-w-0 break-words text-[11px] font-bold uppercase leading-tight tracking-wide">{label}</span>
+        {icon && <span className="shrink-0">{icon}</span>}
       </div>
-      <p className="font-display mt-2 text-2xl font-semibold">{value}</p>
+      <p className="font-display mt-2 break-words text-[clamp(1.25rem,6vw,1.5rem)] font-semibold">{value}</p>
     </div>
   );
 }

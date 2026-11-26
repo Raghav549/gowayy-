@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -52,7 +52,9 @@ export function Providers(props: {
   const pathname = usePathname();
   const [cart, setCart] = useState(props.initialCart);
   const cartRef = useRef(cart);
-  cartRef.current = cart;
+  useEffect(() => {
+    cartRef.current = cart; // latest cart for optimistic-update rollbacks
+  }, [cart]);
   const [favs, setFavs] = useState(props.initialFavs);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [locSlug, setLocSlug] = useState(props.locSlug);

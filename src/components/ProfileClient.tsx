@@ -75,7 +75,8 @@ export function LogoutButton() {
       onClick={async () => {
         setBusy(true);
         await fetch("/api/auth/logout", { method: "POST" });
-        window.location.href = "/";
+        // full reload on purpose: clears every bit of signed-in client state
+        window.location.replace(new URL("/", window.location.origin));
       }}
       className="btn btn-light w-full text-rose-600"
     >

@@ -174,8 +174,8 @@ export function CabBooker({
                   >
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-brand-100 text-brand-700"><Navigation size={17} /></span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold">{short(r.from)}</span>
-                      <span className="flex min-w-0 items-center gap-1 text-xs text-ink/60"><ArrowRight size={11} className="shrink-0" /> <span className="truncate">{short(r.to)}</span></span>
+                      <span className="block break-words text-sm font-bold leading-snug">{short(r.from)}</span>
+                      <span className="mt-0.5 flex min-w-0 items-start gap-1 text-xs text-ink/60"><ArrowRight size={11} className="mt-[3px] shrink-0" /> <span className="min-w-0 break-words leading-snug">{short(r.to)}</span></span>
                     </span>
                     <span className="shrink-0 text-xs font-bold text-ink/70">{r.km} km</span>
                   </button>
@@ -200,7 +200,7 @@ export function CabBooker({
                   <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl sm:h-14 sm:w-14 ${cabId === c.id ? "bg-brand-600 text-white" : "bg-gradient-to-br from-brand-100 to-white text-brand-700"}`}><Icon size={24} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold">{c.name}</span>
-                    <span className="block truncate text-xs text-ink/55">{c.model} · {c.capacity} seat{c.capacity > 1 ? "s" : ""}</span>
+                    <span className="flex min-w-0 gap-1 text-xs text-ink/55"><span className="truncate">{c.model}</span><span className="shrink-0">· {c.capacity} seat{c.capacity > 1 ? "s" : ""}</span></span>
                     {off ? (
                       <span className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-ink/60"><Users size={11} /> Seats up to {c.capacity}</span>
                     ) : (

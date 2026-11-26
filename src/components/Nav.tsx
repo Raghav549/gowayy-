@@ -11,31 +11,66 @@ import { SearchBox } from "@/components/SearchBox";
 import { Avatar } from "@/components/Avatar";
 import { useApp } from "@/components/Providers";
 import { NAV_LINKS, SERVICES } from "@/components/nav-data";
+import { Portal } from "@/components/Portal";
+
+type MenuPos = { right: number; maxH: number; top?: number; bottom?: number };
+
+/** Where to draw the menu for a trigger: below it, or above when there's more room there. */
+function measureMenu(el: HTMLElement): MenuPos | null {
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight;
+  if (r.bottom < 0 || r.top > vh) return null; // trigger scrolled away → close
+  const right = Math.max(16, document.documentElement.clientWidth - r.right);
+  // keep clear of the mobile bottom nav as well as the screen edge
+  const nav = document.querySelector('nav[aria-label="Primary"]')?.getBoundingClientRect();
+  const floor = nav && nav.height > 0 && nav.top > 0 && nav.top < vh ? nav.top : vh;
+  const below = floor - r.bottom - 16;
+  const above = r.top - 24;
+  if (below < 240 && above > below) return { right, bottom: vh - r.top + 8, maxH: Math.min(416, above) };
+  return { right, top: r.bottom + 8, maxH: Math.max(120, Math.min(416, below)) };
+}
 
 function LocationPicker({ light = false, compact = false }: { light?: boolean; compact?: boolean }) {
   const { dests, locSlug, setLoc } = useApp();
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
+  // The menu is portalled to <body> and positioned from the trigger: cards and
+  // headers use backdrop-filters/animations that create stacking contexts, which
+  // let later page content paint over an in-place dropdown.
+  const [pos, setPos] = useState<MenuPos | null>(null);
+  const open = pos !== null;
+  const btn = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const cur = dests.find((d) => d.slug === locSlug);
 
-  // Close on outside tap / Escape. (A fixed full-screen catcher would be trapped by
-  // ancestors that use backdrop-filter, so we listen on the document instead.)
+  // Close on outside tap / Escape; follow the trigger on scroll and resize.
   useEffect(() => {
     if (!open) return;
-    const away = (e: PointerEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (btn.current?.contains(t) || menu.current?.contains(t)) return;
+      setPos(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setPos(null);
+    const follow = (e: Event) => {
+      if (menu.current && e.target instanceof Node && menu.current.contains(e.target)) return; // scrolling the list itself
+      if (btn.current) setPos(measureMenu(btn.current));
+    };
     document.addEventListener("pointerdown", away);
     document.addEventListener("keydown", esc);
+    window.addEventListener("scroll", follow, { passive: true, capture: true });
+    window.addEventListener("resize", follow);
     return () => {
       document.removeEventListener("pointerdown", away);
       document.removeEventListener("keydown", esc);
+      window.removeEventListener("scroll", follow, { capture: true });
+      window.removeEventListener("resize", follow);
     };
   }, [open]);
 
   return (
-    <div ref={box} className="relative min-w-0">
+    <div className="relative min-w-0">
       <button
-        onClick={() => setOpen((o) => !o)}
+        ref={btn}
+        onClick={() => setPos(open || !btn.current ? null : measureMenu(btn.current))}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={`Location: ${cur?.name ?? "All hills"}`}
@@ -45,25 +80,33 @@ function LocationPicker({ light = false, compact = false }: { light?: boolean; c
         <span className={`truncate ${compact ? "max-w-[6.5rem] min-[380px]:max-w-[8.5rem]" : "max-w-28"}`}>{cur?.name ?? "All hills"}</span>
         <ChevronDown size={14} className={`shrink-0 transition ${open ? "rotate-180" : ""}`} />
       </button>
-      {open && (
-        <div role="listbox" className="glass-strong anim-pop absolute right-0 top-full z-50 mt-2 max-h-[min(70vh,26rem)] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-3xl p-2">
-          <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-ink/45">Deliver & discover in</p>
-          {[{ slug: "", name: "All hills" }, ...dests].map((d) => (
-            <button
-              key={d.slug}
-              role="option"
-              aria-selected={d.slug === locSlug}
-              onClick={() => {
-                setLoc(d.slug);
-                setOpen(false);
-              }}
-              className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-brand-50 ${d.slug === locSlug ? "bg-brand-100 text-brand-800" : ""}`}
-            >
-              {d.name}
-              {d.slug === locSlug && <span className="h-2 w-2 rounded-full bg-brand-600" />}
-            </button>
-          ))}
-        </div>
+      {pos && (
+        <Portal>
+          <div
+            ref={menu}
+            role="listbox"
+            aria-label="Choose your area"
+            style={{ top: pos.top, bottom: pos.bottom, right: pos.right, maxHeight: pos.maxH }}
+            className="glass-strong anim-pop fixed z-[70] w-56 bg-white/95 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-3xl p-2 shadow-xl"
+          >
+            <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-ink/45">Deliver & discover in</p>
+            {[{ slug: "", name: "All hills" }, ...dests].map((d) => (
+              <button
+                key={d.slug}
+                role="option"
+                aria-selected={d.slug === locSlug}
+                onClick={() => {
+                  setLoc(d.slug);
+                  setPos(null);
+                }}
+                className={`flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-brand-50 ${d.slug === locSlug ? "bg-brand-100 text-brand-800" : ""}`}
+              >
+                <span className="min-w-0 break-words">{d.name}</span>
+                {d.slug === locSlug && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" />}
+              </button>
+            ))}
+          </div>
+        </Portal>
       )}
     </div>
   );
@@ -106,8 +149,9 @@ export function TopNav() {
             );
           })}
         </nav>
+        {/* Home has its own full-width search right below, so the header doesn't repeat it there. */}
         <div className="mx-auto min-w-0 flex-1 xl:max-w-xs">
-          <SearchBox placeholder="Search gowayy…" />
+          {path !== "/" && <SearchBox placeholder="Search gowayy…" />}
         </div>
         <LocationPicker light />
         <Link href="/cart" aria-label="Bag" className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/80 transition hover:bg-white">

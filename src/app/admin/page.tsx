@@ -40,7 +40,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           {rows.length === 0 && <p className="glass rounded-3xl p-6 text-sm text-ink/60">No orders yet.</p>}
           {rows.map(({ o, u, v }) => (
             <div key={o.id} className="glass-strong flex flex-wrap items-center gap-3 rounded-3xl p-4">
-              <div className="min-w-0 flex-1"><Link href={`/orders/${o.code}`} className="font-bold text-brand-700">{o.code}</Link><p className="text-xs text-ink/55">{u} · {v} · {timeAgo(o.createdAt)}</p></div>
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1"><Link href={`/orders/${o.code}`} className="font-bold text-brand-700">{o.code}</Link><p className="break-words text-xs text-ink/55">{u} · {v} · {timeAgo(o.createdAt)}</p></div>
               <span className="font-display font-semibold">{inr(o.total)}</span>
               <StatusPill status={o.paymentStatus} />
               <StatusSelect kind="order-status" id={o.id} status={o.status} options={[...ORDER_FLOW, "cancelled"]} />
@@ -56,7 +56,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           {rows.length === 0 && <p className="glass rounded-3xl p-6 text-sm text-ink/60">No bookings yet.</p>}
           {rows.map(({ b, u }) => (
             <div key={b.id} className="glass-strong flex flex-wrap items-center gap-3 rounded-3xl p-4">
-              <div className="min-w-0 flex-1"><Link href={`/bookings/${b.code}`} className="font-bold text-brand-700">{b.code}</Link> <span className="text-[10px] font-bold uppercase text-ink/45">{b.type}</span><p className="line-clamp-1 text-xs text-ink/55">{b.title} · {u} · {b.startDate}</p></div>
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1"><Link href={`/bookings/${b.code}`} className="font-bold text-brand-700">{b.code}</Link> <span className="text-[10px] font-bold uppercase text-ink/45">{b.type}</span><p className="line-clamp-2 break-words text-xs text-ink/55">{b.title} · {u} · {b.startDate}</p></div>
               <span className="font-display font-semibold">{inr(b.amount)}</span>
               <StatusPill status={b.paymentStatus} />
               <StatusSelect kind="booking-status" id={b.id} status={b.status} options={["confirmed", "completed", "cancelled"]} />
@@ -109,8 +109,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     if (tab === "broadcast") return <BroadcastForm />;
 
     // overview
-    const since = new Date(Date.now() - 6 * 86400000);
-    since.setHours(0, 0, 0, 0);
+    const since = startOfDayDaysAgo(6);
     const [ro, rb, top, recent] = await Promise.all([
       db.select({ t: orders.total, c: orders.createdAt }).from(orders).where(and(ne(orders.status, "cancelled"), gte(orders.createdAt, since))),
       db.select({ t: bookings.amount, c: bookings.createdAt }).from(bookings).where(and(ne(bookings.status, "cancelled"), gte(bookings.createdAt, since))),
@@ -169,4 +168,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {body}
     </div>
   );
+}
+
+/** Midnight `days` days ago — the start of the overview's 7-day window. */
+function startOfDayDaysAgo(days: number) {
+  const d = new Date(Date.now() - days * 86400000);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }

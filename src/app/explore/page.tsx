@@ -28,7 +28,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
       <PageHeader title="Explore" sub="Destinations & things to do" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {dm.list.map((d, i) => (
-          <DestinationCard key={d.id} d={d} i={i} className="h-60 w-full sm:h-72" />
+          <DestinationCard key={d.id} d={d} i={i} className="min-h-60 w-full sm:min-h-72" />
         ))}
       </div>
 
