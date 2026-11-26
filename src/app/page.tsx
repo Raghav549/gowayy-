@@ -40,7 +40,6 @@ export default async function HomePage() {
   const seen = new Set<string>();
   const groceries = groceryRows.filter((r) => (seen.has(r.p.name) ? false : seen.add(r.p.name))).slice(0, 10);
   const names = Object.fromEntries(dm.list.map((d) => [d.id, d.name]));
-  const hero = pkgs[0];
   const featuredDests = dm.list.filter((d) => d.slug !== "siliguri");
 
   return (
@@ -63,26 +62,8 @@ export default async function HomePage() {
 
       <CategoryRail className="mt-5" />
 
-      <OfferSlides slides={slides} className="anim-up mt-4" />
+      <OfferSlides slides={slides} className="anim-up mt-3" />
 
-      {hero && (
-        <Link href={`/tours/${hero.slug}`} className="anim-up group lift zoom relative mt-5 flex min-h-48 flex-col justify-between gap-6 overflow-hidden rounded-[30px] p-4 text-white sm:min-h-60 sm:p-6 lg:min-h-72" style={{ "--i": 2 } as React.CSSProperties}>
-          <Img src={hero.image} alt={hero.name} className="absolute inset-0 h-full w-full object-cover" eager />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#14082e]/90 via-[#14082e]/35 to-transparent" />
-          <span className="glass-tint relative self-start rounded-full px-3 py-1.5 text-[11px] font-bold">Trip of the week</span>
-          {/* In flow (not absolutely positioned) so the card grows with its text; the CTA wraps under the price when space is tight. */}
-          <div className="relative flex flex-wrap items-end justify-between gap-x-3 gap-y-3">
-            <div className="min-w-0 flex-[1_1_12rem]">
-              <p className="text-xs text-white/75">{hero.days} days · {hero.theme}</p>
-              <h2 className="font-display break-words text-2xl font-semibold leading-[1.05] sm:text-3xl">{hero.name}</h2>
-              <p className="mt-1 text-sm font-semibold text-white/90">from {inr(hero.price)} /person</p>
-            </div>
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-white px-4 py-2.5 text-xs font-bold text-ink transition group-hover:gap-2">
-              View trip <ArrowRight size={14} />
-            </span>
-          </div>
-        </Link>
-      )}
 
       <SectionHead title="Explore destinations" href="/explore" />
       <div className="hscroll">

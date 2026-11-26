@@ -3,6 +3,7 @@
  * /public/media/cat. `ring` is the story-style gradient border, tuned per item but
  * always blending into the brand violet so the row reads as one family.
  */
+/** Order: trips, cabs and stays lead, then everyday shopping, then food cravings. */
 export type HomeCategory = { href: string; label: string; img: string; ring: string };
 
 const R = {
@@ -16,6 +17,9 @@ const R = {
 };
 
 export const HOME_CATEGORIES: HomeCategory[] = [
+  { href: "/tours", label: "Tours", img: "/media/cat/tours.webp", ring: R.violet },
+  { href: "/cabs", label: "Cabs", img: "/media/cat/cabs.webp", ring: R.amber },
+  { href: "/hotels", label: "Stays", img: "/media/cat/stays.webp", ring: R.sky },
   { href: "/grocery", label: "Grocery", img: "/media/cat/grocery.webp", ring: R.green },
   { href: "/food", label: "Food", img: "/media/cat/food.webp", ring: R.orange },
   { href: "/offers", label: "Best offers", img: "/media/cat/offers.webp", ring: R.violet },
@@ -23,9 +27,6 @@ export const HOME_CATEGORIES: HomeCategory[] = [
   { href: "/food?q=spicy", label: "Spicy", img: "/media/cat/spicy.webp", ring: R.red },
   { href: "/food?cat=Momos", label: "Momos", img: "/media/cat/momos.webp", ring: R.pink },
   { href: "/food?cat=Biryani", label: "Biryani", img: "/media/cat/biryani.webp", ring: R.amber },
-  { href: "/cabs", label: "Cabs", img: "/media/cat/cabs.webp", ring: R.amber },
-  { href: "/tours", label: "Tours", img: "/media/cat/tours.webp", ring: R.violet },
-  { href: "/hotels", label: "Stays", img: "/media/cat/stays.webp", ring: R.sky },
   { href: "/grocery?cat=Fresh+produce", label: "Fresh veg", img: "/media/cat/veggies.webp", ring: R.green },
   { href: "/food?cat=Dessert", label: "Desserts", img: "/media/cat/desserts.webp", ring: R.pink },
   { href: "/grocery?cat=Bakery", label: "Bakery", img: "/media/cat/bakery.webp", ring: R.orange },

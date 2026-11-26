@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { PoolClient } from "pg";
 import { pool } from "@/db";
 import { CREATE_SCHEMA, SCHEMA_VERSION, UPGRADE_COLUMNS } from "@/db/schema-sql";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
 import { pick, type PoolKey } from "@/lib/images";
+import { photo, productPhoto } from "@/lib/photos";
 
 const g = globalThis as typeof globalThis & { __gwSeed?: Promise<void> };
 
@@ -76,6 +78,7 @@ async function run() {
     const { rows } = await client.query("select exists(select 1 from destinations) as seeded");
     if (!rows[0].seeded) await seedAll(drizzle(client));
     await addCatalogExtras(drizzle(client));
+    await applyPhotos(client);
     await client.query(META);
     await client.query(
       `insert into "_gowayy_meta" (key, value) values ('schema', $1), ('catalog', $2)
@@ -377,13 +380,13 @@ const SHOPS: Record<string, S[]> = {
 // Added after launch, so they're applied idempotently to new *and* existing
 // databases (matched by vendor slug / vendor + dish name). Bump CATALOG_VERSION
 // whenever this list changes and the next start-up applies it once.
-const CATALOG_VERSION = "2026-11-26.pizza-spicy";
+const CATALOG_VERSION = "2026-11-26.real-photos-2";
 
 const EXTRA_VENDORS = [
   {
     slug: "slice-of-the-hills", kind: "restaurant", dest: "darjeeling", name: "Slice of the Hills", tagline: "Wood-fired pizza on Mall Road",
     description: "Hand-stretched sourdough pizzas from a wood-fired oven, plus fiery bites for cold hill evenings.", area: "Mall Road",
-    image: "/media/food/pizzeria.webp", rating: 4.6, etaMins: 30, minOrder: 199, deliveryFee: 30, cuisines: ["Pizza", "Italian", "Spicy"],
+    image: "/media/vendor/slice-of-the-hills.webp", rating: 4.6, etaMins: 30, minOrder: 199, deliveryFee: 30, cuisines: ["Pizza", "Italian", "Spicy"],
   },
 ];
 
@@ -428,10 +431,74 @@ async function addCatalogExtras(db: NodePgDatabase) {
     if (!add.length) continue;
     await db.insert(products).values(
       add.map((x) => ({
-        vendorId: v.id, name: x[0], emoji: x[1], price: x[2], mrp: x[3], unit: "1 serving", category: x[4], veg: x[5], image: x[6], tag: x[7], description: x[8],
+        vendorId: v.id, name: x[0], emoji: x[1], price: x[2], mrp: x[3], unit: "1 serving", category: x[4], veg: x[5], image: productPhoto(x[0]) ?? x[6], tag: x[7], description: x[8],
       })),
     );
   }
+}
+
+/** The hotel's town and its best-known sights (the hero already shows the hotel). */
+function hotelGallery(hotelSlug: string, destSlug: string): string[] | undefined {
+  const sights = ATTR.filter((a) => a[0] === destSlug).map((a) => photo("attr", slugify(a[1])));
+  const list = [photo("dest", destSlug), ...sights, photo("hotel", hotelSlug)].filter((x): x is string => !!x).slice(0, 3);
+  return list.length === 3 ? list : undefined;
+}
+
+/**
+ * Points every catalogue row that has a real local photo at it — new and
+ * existing databases alike. Matching is by slug (or product name), so admin-
+ * added items without a photo are left untouched. One bulk statement per table.
+ */
+async function applyPhotos(client: PoolClient) {
+  const bySlug = async (table: string, kind: "dest" | "attr" | "pkg" | "vendor") => {
+    const { rows } = await client.query<{ slug: string }>(`select slug from ${table}`);
+    const pairs = rows.map((r) => [r.slug, photo(kind, r.slug)] as const).filter((x): x is readonly [string, string] => !!x[1]);
+    if (!pairs.length) return;
+    await client.query(
+      `update ${table} t set image = v.img from unnest($1::text[], $2::text[]) as v(slug, img)
+       where t.slug = v.slug and t.image is distinct from v.img`,
+      [pairs.map((x) => x[0]), pairs.map((x) => x[1])],
+    );
+  };
+  await bySlug("destinations", "dest");
+  await bySlug("attractions", "attr");
+  await bySlug("packages", "pkg");
+  await bySlug("vendors", "vendor");
+
+  const { rows: hs } = await client.query<{ slug: string; dest: string }>(
+    `select h.slug, d.slug as dest from hotels h join destinations d on d.id = h.destination_id`,
+  );
+  for (const h of hs) {
+    const image = photo("hotel", h.slug);
+    if (!image) continue;
+    await client.query(`update hotels set image = $2, gallery = coalesce($3::text[], gallery) where slug = $1`, [h.slug, image, hotelGallery(h.slug, h.dest) ?? null]);
+  }
+
+  const { rows: ps } = await client.query<{ name: string }>(`select distinct name from products`);
+  const prod = ps.map((r) => [r.name, productPhoto(r.name)] as const).filter((x): x is readonly [string, string] => !!x[1]);
+  if (prod.length) {
+    const args = [prod.map((x) => x[0]), prod.map((x) => x[1])];
+    await client.query(
+      `update products p set image = v.img from unnest($1::text[], $2::text[]) as v(name, img)
+       where p.name = v.name and p.image is distinct from v.img`,
+      args,
+    );
+    // Past order lines keep a snapshot; fill in ones that only had an emoji.
+    await client.query(
+      `update order_items o set image = v.img from unnest($1::text[], $2::text[]) as v(name, img)
+       where o.name = v.name and o.image = ''`,
+      args,
+    );
+  }
+
+  // Booking snapshots of cabs, stays and trips follow the new photos too.
+  await client.query(
+    `update bookings b set image = '/media/cab/' || c.slug || '.webp' from cab_types c
+     where b.type = 'cab' and b.ref_id = c.id and c.slug = any($1::text[])`,
+    [["bike", "hatchback", "sedan", "suv", "innova", "tempo"].filter((x) => photo("cab", x))],
+  );
+  await client.query(`update bookings b set image = h.image from hotels h where b.type = 'hotel' and b.ref_id = h.id and h.image like '/media/%'`);
+  await client.query(`update bookings b set image = p.image from packages p where b.type = 'package' and b.ref_id = p.id and p.image like '/media/%'`);
 }
 
 async function seedAll(db: NodePgDatabase) {
@@ -446,7 +513,7 @@ async function seedAll(db: NodePgDatabase) {
     .values(
       DEST.map((d, i) => ({
         slug: d[0], name: d[1], region: d[2], tagline: d[3], description: d[4], altitude: d[5], bestSeason: d[6],
-        image: pick(d[7], d[8], 1400), rating: rate(i, 4.4), tags: d[9], featured: d[10], lat: d[11], lng: d[12],
+        image: photo("dest", d[0]) ?? pick(d[7], d[8], 1400), rating: rate(i, 4.4), tags: d[9], featured: d[10], lat: d[11], lng: d[12],
       })),
     )
     .returning();
@@ -465,7 +532,7 @@ async function seedAll(db: NodePgDatabase) {
     const [loc] = await db.insert(locations).values({ destinationId: dId[a[0]], name: a[1], kind: "attraction", lat, lng }).returning();
     await db.insert(attractions).values({
       slug: slugify(a[1]), destinationId: dId[a[0]], name: a[1], category: a[2], description: a[3],
-      image: pick(a[4], i, 1200), rating: rate(i, 4.3), entryFee: a[5], duration: a[6], timings: a[7], tip: a[8], locationId: loc.id,
+      image: photo("attr", slugify(a[1])) ?? pick(a[4], i, 1200), rating: rate(i, 4.3), entryFee: a[5], duration: a[6], timings: a[7], tip: a[8], locationId: loc.id,
     });
   }
 
@@ -476,14 +543,15 @@ async function seedAll(db: NodePgDatabase) {
     const [loc] = await db.insert(locations).values({ destinationId: dId[h[0]], name: h[1], kind: "hotel", lat, lng }).returning();
     await db.insert(hotels).values({
       slug: slugify(h[1]), destinationId: dId[h[0]], name: h[1], type: h[2], description: h[3],
-      image: pick("room", i, 1200), gallery: [pick("room", i + 1, 1000), pick("room", i + 2, 1000), pick("peaks", i, 1000)],
+      image: photo("hotel", slugify(h[1])) ?? pick("room", i, 1200),
+      gallery: hotelGallery(slugify(h[1]), h[0]) ?? [pick("room", i + 1, 1000), pick("room", i + 2, 1000), pick("peaks", i, 1000)],
       pricePerNight: h[4], stars: h[5], rating: h[6], amenities: h[7], area: h[8], locationId: loc.id,
     });
   }
 
   await db.insert(packages).values(
     PKG.map((p, i) => ({
-      slug: p[0], name: p[1], theme: p[2], description: p[3], image: pick(p[4], i, 1400), days: p[11].length, price: p[5],
+      slug: p[0], name: p[1], theme: p[2], description: p[3], image: photo("pkg", p[0]) ?? pick(p[4], i, 1400), days: p[11].length, price: p[5],
       destinationIds: p[6].map((s) => dId[s]), highlights: p[7], inclusions: COMMON_INC,
       itinerary: p[11].map((x, k) => ({ day: k + 1, title: x[0], desc: x[1] })),
       difficulty: p[8], groupSize: p[9], rating: rate(i, 4.4), featured: p[10],
@@ -500,7 +568,7 @@ async function seedAll(db: NodePgDatabase) {
     .values(
       VEND.map((v, i) => ({
         slug: v[0], kind: v[1], destinationId: dId[v[2]], name: v[3], tagline: v[4], description: v[5], area: v[6],
-        image: pick(v[7], v[8], 1000), rating: rate(i, 4.3), etaMins: v[9], minOrder: v[10], deliveryFee: v[11], cuisines: v[12],
+        image: photo("vendor", v[0]) ?? pick(v[7], v[8], 1000), rating: rate(i, 4.3), etaMins: v[9], minOrder: v[10], deliveryFee: v[11], cuisines: v[12],
       })),
     )
     .returning();
@@ -513,7 +581,7 @@ async function seedAll(db: NodePgDatabase) {
       const bump = (i * vi) % 3;
       prodRows.push({
         vendorId: vId[v[0]], name: p[0], emoji: p[1], price: p[2] + bump, mrp: Math.max(p[3], p[2] + bump), unit: p[4],
-        category: p[5], veg: p[6], tag: p[7], description: `${p[0]} — ${p[4]}. Fresh stock from ${v[3]}.`,
+        category: p[5], veg: p[6], tag: p[7], image: productPhoto(p[0]) ?? "", description: `${p[0]} — ${p[4]}. Fresh stock from ${v[3]}.`,
       });
     });
   });
@@ -521,7 +589,7 @@ async function seedAll(db: NodePgDatabase) {
     items.forEach((p, i) => {
       prodRows.push({
         vendorId: vId[slug], name: p[0], emoji: p[1], price: p[2], mrp: Math.round(p[2] * 1.1), unit: "1 serving",
-        category: p[3], veg: p[4], tag: p[6], image: p[5] ? pick(p[5], i, 600) : "",
+        category: p[3], veg: p[4], tag: p[6], image: productPhoto(p[0]) ?? (p[5] ? pick(p[5], i, 600) : ""),
         description: `${p[0]} prepared fresh to order.`,
       });
     });
@@ -530,7 +598,7 @@ async function seedAll(db: NodePgDatabase) {
     items.forEach((p, i) => {
       prodRows.push({
         vendorId: vId[slug], name: p[0], emoji: p[1], price: p[2], mrp: p[3], unit: p[4], category: p[5],
-        image: p[6] ? pick(p[6], i, 600) : "", isExperience: p[7], description: p[8],
+        image: productPhoto(p[0]) ?? (p[6] ? pick(p[6], i, 600) : ""), isExperience: p[7], description: p[8],
       });
     });
   }

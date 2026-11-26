@@ -74,7 +74,7 @@ function LocationPicker({ light = false, compact = false }: { light?: boolean; c
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={`Location: ${cur?.name ?? "All hills"}`}
-        aria-busy={locPending}
+        aria-busy={locPending || undefined}
         className={`flex h-11 min-w-0 max-w-full items-center gap-1.5 rounded-full text-sm font-semibold transition ${compact ? "px-3" : "px-3.5"} ${light ? "bg-white/80 hover:bg-white" : "glass"}`}
       >
         {locPending ? <Loader2 size={16} className="shrink-0 animate-spin text-brand-600" /> : <MapPin size={16} className="shrink-0 text-brand-600" />}
@@ -236,10 +236,9 @@ export function BottomNav() {
               {SERVICES.map((s, i) => (
                 <Link key={s.href} href={s.href} style={{ "--i": i } as React.CSSProperties} className="anim-pop flex flex-col items-center gap-2 text-center transition active:scale-95">
                   <span className={`grid h-16 w-16 place-items-center rounded-full bg-gradient-to-tr p-[2.5px] ${s.ring}`}>
-                    <span className="grid h-full w-full place-items-center rounded-full bg-white p-[3px]">
-                      <span className={`grid h-full w-full place-items-center rounded-full ${s.tile} ${s.fg}`}>
-                        <s.icon size={28} />
-                      </span>
+                    <span className="block h-full w-full overflow-hidden rounded-full bg-white p-[3px]">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- small pre-sized local webp */}
+                      <img src={s.img} alt="" width={120} height={120} decoding="async" draggable={false} className="h-full w-full rounded-full bg-brand-50 object-cover" />
                     </span>
                   </span>
                   <span className="text-sm font-bold">{s.label}</span>

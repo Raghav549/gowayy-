@@ -2,6 +2,7 @@ import { eq, ilike, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { bookings, cabTypes, coupons, hotels, locations, packages, products, vendors } from "@/db/schema";
 import { body, fail, ok, needUser } from "@/lib/api";
+import { photo } from "@/lib/photos";
 import { pick } from "@/lib/images";
 import { charge, refundToWallet, type PayInput } from "@/lib/payments";
 import { cabFare, couponDiscount, TAX, withTax } from "@/lib/pricing";
@@ -36,7 +37,7 @@ async function buildCab(opts: { fromId: number; toId: number; cabTypeId: number;
   const fare = cabFare(cab, km, opts.roundTrip);
   return {
     type: "cab", refId: cab.id, title: `${from.name.split(" (")[0]} → ${to.name.split(" (")[0]}`,
-    subtitle: `${cab.name} · ${km} km${opts.roundTrip ? " · round trip" : ""}`, image: pick("jeep", cab.id, 800),
+    subtitle: `${cab.name} · ${km} km${opts.roundTrip ? " · round trip" : ""}`, image: photo("cab", cab.slug) ?? pick("jeep", cab.id, 800),
     destinationId: to.destinationId, startDate: opts.date, endDate: "", guests: opts.guests, subtotal: fare, taxRate: TAX.cab, bundle: opts.bundle,
     details: {
       from: from.name, to: to.name, km, mins: hillMinutes(km), cab: cab.name, model: cab.model, time: opts.time || "09:00",

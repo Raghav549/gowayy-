@@ -56,7 +56,7 @@ export default async function StorePage({ params }: { params: Promise<{ slug: st
               <div key={p.id} style={{ "--i": i } as React.CSSProperties} className="anim-up glass-strong flex items-center gap-3 rounded-[28px] p-2.5">
                 <Img src={p.image || v.image} alt={p.name} className="h-20 w-20 shrink-0 rounded-2xl object-cover" />
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-1 font-bold">{p.emoji} {p.name}</p>
+                  <p className="line-clamp-1 font-bold">{p.name}</p>
                   <p className="line-clamp-1 text-xs text-ink/55">{p.description}</p>
                   <p className="text-sm font-semibold">{inr(p.price)} <span className="text-xs font-normal text-ink/50">{p.unit}</span></p>
                 </div>

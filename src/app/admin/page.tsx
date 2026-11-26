@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Img } from "@/components/Img";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
 import { CalendarCheck, IndianRupee, Receipt, Users } from "lucide-react";
@@ -78,7 +79,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <div className="divide-y divide-brand-100">
               {rows.map(({ p, v }) => (
                 <div key={p.id} className="flex items-center gap-3 py-2.5">
-                  <span className="text-2xl">{p.emoji}</span>
+                  {p.image ? <Img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center text-2xl">{p.emoji}</span>}
                   <div className="min-w-0 flex-1"><p className="line-clamp-1 text-sm font-bold">{p.name}</p><p className="line-clamp-1 text-xs text-ink/50">{v} · {inr(p.price)}</p></div>
                   <ProductToggle id={p.id} available={p.available} />
                 </div>

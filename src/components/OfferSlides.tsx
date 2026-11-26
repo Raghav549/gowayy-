@@ -70,7 +70,7 @@ export function OfferSlides({ slides, className = "" }: { slides: OfferSlide[]; 
           <Link
             key={s.key}
             href={s.href}
-            className="group relative flex aspect-[16/9] min-h-[10.5rem] w-full min-w-0 flex-col justify-between overflow-hidden rounded-[28px] bg-brand-900 p-4 text-white shadow-lg shadow-brand-900/15 outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:aspect-[2/1] sm:p-5"
+            className="group relative isolate flex aspect-[16/10] min-h-[12.5rem] w-full min-w-0 flex-col justify-between overflow-hidden rounded-[28px] bg-brand-900 p-4 text-white outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 sm:aspect-[2/1] sm:min-h-[14rem] sm:p-6 lg:min-h-[16rem]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- pre-sized local webp */}
             <img
@@ -85,13 +85,13 @@ export function OfferSlides({ slides, className = "" }: { slides: OfferSlide[]; 
               className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
             />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#14082e]/90 via-[#14082e]/40 to-[#14082e]/5" />
-            <span className="relative self-start rounded-full bg-white px-3 py-1.5 text-[12px] font-extrabold leading-none text-brand-700 shadow-md">{s.badge}</span>
+            <span className="relative self-start rounded-full bg-white px-3 py-1.5 text-[12px] font-extrabold leading-none text-brand-700 sm:text-[13px]">{s.badge}</span>
             <div className="relative flex items-end justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="font-display line-clamp-2 break-words text-[clamp(1.15rem,5.2vw,1.5rem)] font-semibold leading-[1.08]">{s.title}</h3>
-                <p className="mt-1 line-clamp-2 break-words text-xs font-semibold text-white/85">{s.detail}</p>
+                <h3 className="font-display line-clamp-2 break-words text-[clamp(1.3rem,6vw,1.9rem)] font-semibold leading-[1.08]">{s.title}</h3>
+                <p className="mt-1 line-clamp-2 break-words text-xs font-semibold text-white/85 sm:text-sm">{s.detail}</p>
               </div>
-              <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/95 text-ink transition group-hover:translate-x-0.5">
+              <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/95 text-ink transition group-hover:translate-x-0.5">
                 <ArrowRight size={17} />
               </span>
             </div>

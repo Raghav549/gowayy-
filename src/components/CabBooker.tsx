@@ -26,6 +26,8 @@ const GROUPS: [string, string[]][] = [
 ];
 
 const CAB_ICON: Record<string, LucideIcon> = { bike: Bike, hatchback: Car, sedan: CarFront, suv: Truck, innova: CarTaxiFront, tempo: Bus };
+// Real photos of the model each cab type is served with (public/media/cab).
+const CAB_PHOTO = new Set(["bike", "hatchback", "sedan", "suv", "innova", "tempo"]);
 const short = (name: string) => name.split(" (")[0];
 
 function LocSelect({ label, value, onChange, locs, icon }: { label: string; value: number; onChange: (n: number) => void; locs: Loc[]; icon: React.ReactNode }) {
@@ -197,7 +199,11 @@ export function CabBooker({
               return (
                 <button key={c.id} disabled={off} onClick={() => setCabId(c.id)} aria-pressed={cabId === c.id} style={{ "--i": i } as React.CSSProperties}
                   className={`anim-up flex w-full items-center gap-3 rounded-3xl p-3 text-left ring-1 transition sm:gap-4 sm:p-3.5 ${cabId === c.id ? "bg-white ring-2 ring-brand-500 shadow-xl shadow-brand-600/15" : "glass ring-white/60 hover:bg-white/80"} ${off ? "opacity-40" : ""}`}>
-                  <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl sm:h-14 sm:w-14 ${cabId === c.id ? "bg-brand-600 text-white" : "bg-gradient-to-br from-brand-100 to-white text-brand-700"}`}><Icon size={24} /></span>
+                  {CAB_PHOTO.has(c.slug) ? (
+                    <Img src={`/media/cab/${c.slug}.webp`} alt={c.model} className={`h-12 w-16 shrink-0 rounded-2xl bg-white object-cover sm:h-14 sm:w-20 ${cabId === c.id ? "ring-2 ring-brand-500" : "ring-1 ring-brand-100"}`} />
+                  ) : (
+                    <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl sm:h-14 sm:w-14 ${cabId === c.id ? "bg-brand-600 text-white" : "bg-gradient-to-br from-brand-100 to-white text-brand-700"}`}><Icon size={24} /></span>
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold">{c.name}</span>
                     <span className="flex min-w-0 gap-1 text-xs text-ink/55"><span className="truncate">{c.model}</span><span className="shrink-0">· {c.capacity} seat{c.capacity > 1 ? "s" : ""}</span></span>
