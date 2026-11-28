@@ -16,7 +16,7 @@ function ItemForm({row,kind}:{row:RecordRow;kind:string}) {
  <form action="/api/manage" method="post" style={{paddingTop:14}}><input type="hidden" name="action" value="edit-entity"/><input type="hidden" name="entity" value={kind}/><input type="hidden" name="id" value={id}/>
   <TextField name="name" label="Listing name" defaultValue={String(row.name||"")} required/>
   {kind!=="cab_type"?<TextField name="image" label="Image URL" defaultValue={String(row.image||"")}/>:null}
-  <TextField name="price" label="Price (₹)" type="number" defaultValue={Number(row.price||0)}/>
+  <TextField name="price" label="Price (₹)" type="number" defaultValue={Number(row[kind==="hotel"?"price_per_night":kind==="cab_type"?"base_fare":"price"]||0)}/>
   <Submit>Save changes</Submit>
  </form></details>;
 }
