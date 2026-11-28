@@ -8,8 +8,8 @@ export default async function Login({searchParams}:{searchParams:Promise<{error?
   <span className="tag">{mode==="admin"?"Protected administrator access":"Partner workspace"}</span>
   <h1 style={{marginTop:18}}>Welcome back</h1>
   <p className="sub">Sign in with your existing Gowayy account. All identities belong to the shared platform.</p>
-  {!configured()?<p className="error">Database is not connected to this deployment. Configure DATABASE_URL on Vercel.</p>:null}
-  {error?<p className="error">{error==="invalid"?"Incorrect credentials or permission denied":error==="secure"?"Authentication is not configured":"Unable to sign in"}</p>:null}
+  {!configured()?<p className="error">Sign in is temporarily unavailable. Please try again shortly.</p>:null}
+  {error?<p className="error">{error==="invalid"?"Incorrect credentials or permission denied":error==="secure"?"Secure sign in is temporarily unavailable":"Unable to sign in"}</p>:null}
   <form action="/api/session" method="post">
    <input type="hidden" name="action" value="login"/>
    <label className="field"><span>Email address</span><input className="input" name="email" type="email" autoComplete="email" required/></label>

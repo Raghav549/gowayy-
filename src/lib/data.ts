@@ -34,10 +34,10 @@ export async function getConnected(destIds: number[], limit = 6) {
   if (!destIds.length) return { hotels: [], attractions: [], restaurants: [], groceries: [], shops: [], packages: [] };
   const arr = sql.raw(`ARRAY[${destIds.map((n) => Number(n)).join(",")}]::int[]`);
   const [h, a, v, p] = await Promise.all([
-    db.select().from(hotels).where(inArray(hotels.destinationId, destIds)).orderBy(desc(hotels.rating)).limit(limit),
+    db.select().from(hotels).where(and(inArray(hotels.destinationId, destIds),eq(hotels.active,true))).orderBy(desc(hotels.rating)).limit(limit),
     db.select().from(attractions).where(inArray(attractions.destinationId, destIds)).orderBy(desc(attractions.rating)).limit(limit),
-    db.select().from(vendors).where(inArray(vendors.destinationId, destIds)).orderBy(desc(vendors.rating)),
-    db.select().from(packages).where(sql`${packages.destinationIds} && ${arr}`).orderBy(desc(packages.rating)).limit(limit),
+    db.select().from(vendors).where(and(inArray(vendors.destinationId, destIds),eq(vendors.active,true))).orderBy(desc(vendors.rating)),
+    db.select().from(packages).where(and(sql`${packages.destinationIds} && ${arr}`,eq(packages.active,true))).orderBy(desc(packages.rating)).limit(limit),
   ]);
   return {
     hotels: h,

@@ -50,20 +50,28 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          APP_URL: ${{ vars.APP_URL }}
+          CUSTOMER_URL: ${{ vars.CUSTOMER_URL }}
+          BUSINESS_URL: ${{ vars.BUSINESS_URL }}
+          ADMIN_URL: ${{ vars.ADMIN_URL }}
         run: |
           ARGS=""
-          if [ -n "$APP_URL" ]; then ARGS="-PappUrl=$APP_URL"; fi
-          gradle -p android assembleRelease --no-daemon --stacktrace $ARGS
+          if [ -n "$CUSTOMER_URL" ]; then ARGS="$ARGS -PcustomerUrl=$CUSTOMER_URL"; fi
+          if [ -n "$BUSINESS_URL" ]; then ARGS="$ARGS -PbusinessUrl=$BUSINESS_URL"; fi
+          if [ -n "$ADMIN_URL" ]; then ARGS="$ARGS -PadminUrl=$ADMIN_URL"; fi
+          gradle -p android assembleCustomerRelease assembleBusinessRelease assembleAdminRelease --no-daemon --stacktrace $ARGS
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk "out/gowayy-1.0.${GITHUB_RUN_NUMBER}.apk"
-          cp android/app/build/outputs/apk/release/app-release.apk out/gowayy.apk
-          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner verify --print-certs out/gowayy.apk | head -5
+          cp android/app/build/outputs/apk/customer/release/app-customer-release.apk "out/gowayy-customer-1.0.${GITHUB_RUN_NUMBER}.apk"
+          cp android/app/build/outputs/apk/business/release/app-business-release.apk "out/gowayy-business-1.0.${GITHUB_RUN_NUMBER}.apk"
+          cp android/app/build/outputs/apk/admin/release/app-admin-release.apk "out/gowayy-admin-1.0.${GITHUB_RUN_NUMBER}.apk"
+          cp android/app/build/outputs/apk/customer/release/app-customer-release.apk out/gowayy.apk
+          cp android/app/build/outputs/apk/business/release/app-business-release.apk out/gowayy-business.apk
+          cp android/app/build/outputs/apk/admin/release/app-admin-release.apk out/gowayy-admin.apk
+          for apk in out/gowayy.apk out/gowayy-business.apk out/gowayy-admin.apk; do "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner verify "$apk"; done
 
       - uses: actions/upload-artifact@v4
         with:
-          name: gowayy-apk-1.0.${{ github.run_number }}
-          path: out/gowayy-1.0.${{ github.run_number }}.apk
+          name: gowayy-android-suite-1.0.${{ github.run_number }}
+          path: out/*-1.0.${{ github.run_number }}.apk
           if-no-files-found: error
 
       # Builds from main also refresh the "Android app" release, which gives a
@@ -74,8 +82,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-latest --yes --cleanup-tag || true
-          gh release create android-latest out/gowayy.apk "out/gowayy-1.0.${GITHUB_RUN_NUMBER}.apk" \
+          gh release create android-latest out/gowayy.apk out/gowayy-business.apk out/gowayy-admin.apk \
+            "out/gowayy-customer-1.0.${GITHUB_RUN_NUMBER}.apk" "out/gowayy-business-1.0.${GITHUB_RUN_NUMBER}.apk" "out/gowayy-admin-1.0.${GITHUB_RUN_NUMBER}.apk" \
             --target "$GITHUB_SHA" \
-            --title "gowayy Android app 1.0.${GITHUB_RUN_NUMBER}" \
-            --notes "Install gowayy.apk on your Android phone (allow installs from your browser when asked). Built from ${GITHUB_SHA::7}." \
+            --title "Gowayy Android suite 1.0.${GITHUB_RUN_NUMBER}" \
+            --notes "Customer, Business and Admin Android apps. Install only the portal appropriate for your role. Built from ${GITHUB_SHA::7}." \
             --latest

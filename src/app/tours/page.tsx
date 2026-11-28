@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { packages } from "@/db/schema";
 import { getDestMap, getLoc } from "@/lib/data";
@@ -19,7 +19,7 @@ const LENGTHS: Record<string, [number, number, string]> = {
 export default async function ToursPage({ searchParams }: { searchParams: Promise<{ theme?: string; dest?: string; len?: string; q?: string }> }) {
   const sp = await searchParams;
   const [dm, loc] = await Promise.all([getDestMap(), getLoc()]);
-  const all = await db.select().from(packages).orderBy(desc(packages.rating));
+  const all = await db.select().from(packages).where(eq(packages.active,true)).orderBy(desc(packages.rating));
   const names = Object.fromEntries(dm.list.map((d) => [d.id, d.name]));
   const themes = [...new Set(all.map((p) => p.theme))];
   const dest = dm.list.find((d) => d.slug === sp.dest);

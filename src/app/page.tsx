@@ -24,17 +24,17 @@ export default async function HomePage() {
   const near = (destCol: typeof vendors.destinationId) => sql`(${destCol} = ${loc?.id ?? 0}) desc`;
 
   const [pkgs, groceryRows, restaurants, stays, shops, attrs, slides] = await Promise.all([
-    db.select().from(packages).where(eq(packages.featured, true)).orderBy(desc(packages.rating)).limit(6),
+    db.select().from(packages).where(and(eq(packages.featured, true),eq(packages.active,true))).orderBy(desc(packages.rating)).limit(6),
     db
       .select({ p: products, v: vendors })
       .from(products)
       .innerJoin(vendors, eq(vendors.id, products.vendorId))
-      .where(and(eq(vendors.kind, "grocery"), eq(products.available, true)))
+      .where(and(eq(vendors.kind, "grocery"),eq(vendors.active,true),eq(products.available, true),sql`${products.stock}>0`))
       .orderBy(near(vendors.destinationId), desc(products.tag), desc(vendors.rating))
       .limit(60),
-    db.select().from(vendors).where(eq(vendors.kind, "restaurant")).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
-    db.select().from(hotels).orderBy(sql`(${hotels.destinationId} = ${loc?.id ?? 0}) desc`, desc(hotels.rating)).limit(6),
-    db.select().from(vendors).where(eq(vendors.kind, "shop")).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
+    db.select().from(vendors).where(and(eq(vendors.kind, "restaurant"),eq(vendors.active,true))).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
+    db.select().from(hotels).where(eq(hotels.active,true)).orderBy(sql`(${hotels.destinationId} = ${loc?.id ?? 0}) desc`, desc(hotels.rating)).limit(6),
+    db.select().from(vendors).where(and(eq(vendors.kind, "shop"),eq(vendors.active,true))).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
     db.select().from(attractions).orderBy(sql`(${attractions.destinationId} = ${loc?.id ?? 0}) desc`, desc(attractions.rating)).limit(6),
     getOfferSlides(),
   ]);

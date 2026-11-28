@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { CarTaxiFront, Check, MapPin, Star } from "lucide-react";
 import { db } from "@/db";
 import { hotels } from "@/db/schema";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HotelPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [h] = await db.select().from(hotels).where(eq(hotels.slug, slug)).limit(1);
+  const [h] = await db.select().from(hotels).where(and(eq(hotels.slug, slug),eq(hotels.active,true))).limit(1);
   if (!h) notFound();
   const dm = await getDestMap();
   const dest = dm.byId[h.destinationId];

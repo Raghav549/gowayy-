@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { Bike, MapPin, Timer, Wallet } from "lucide-react";
 import { db } from "@/db";
 import { products, vendors } from "@/db/schema";
@@ -17,13 +17,13 @@ export const dynamic = "force-dynamic";
 
 export default async function StorePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [v] = await db.select().from(vendors).where(eq(vendors.slug, slug)).limit(1);
+  const [v] = await db.select().from(vendors).where(and(eq(vendors.slug, slug),eq(vendors.active,true))).limit(1);
   if (!v) notFound();
   const dm = await getDestMap();
   const dest = dm.byId[v.destinationId];
   const names = Object.fromEntries(dm.list.map((x) => [x.id, x.name]));
   const [items, data] = await Promise.all([
-    db.select().from(products).where(eq(products.vendorId, v.id)).orderBy(asc(products.id)),
+    db.select().from(products).where(and(eq(products.vendorId, v.id),eq(products.available,true),gt(products.stock,0))).orderBy(asc(products.id)),
     getConnected([v.destinationId], 6),
   ]);
   data.restaurants = data.restaurants.filter((x) => x.id !== v.id);

@@ -1,4 +1,4 @@
-import { eq, ilike, or } from "drizzle-orm";
+import { and, eq, gt, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { attractions, destinations, hotels, packages, products, vendors } from "@/db/schema";
 import { ensureSeeded } from "@/lib/seed";
@@ -11,14 +11,14 @@ export async function searchAll(q: string, limit = 5): Promise<SearchHit[]> {
   const [d, a, h, p, v, pr] = await Promise.all([
     db.select().from(destinations).where(or(ilike(destinations.name, like), ilike(destinations.tagline, like))).limit(limit),
     db.select().from(attractions).where(or(ilike(attractions.name, like), ilike(attractions.category, like))).limit(limit),
-    db.select().from(hotels).where(or(ilike(hotels.name, like), ilike(hotels.type, like))).limit(limit),
-    db.select().from(packages).where(or(ilike(packages.name, like), ilike(packages.theme, like))).limit(limit),
-    db.select().from(vendors).where(or(ilike(vendors.name, like), ilike(vendors.tagline, like))).limit(limit),
+    db.select().from(hotels).where(and(eq(hotels.active,true),or(ilike(hotels.name, like), ilike(hotels.type, like)))).limit(limit),
+    db.select().from(packages).where(and(eq(packages.active,true),or(ilike(packages.name, like), ilike(packages.theme, like)))).limit(limit),
+    db.select().from(vendors).where(and(eq(vendors.active,true),or(ilike(vendors.name, like), ilike(vendors.tagline, like)))).limit(limit),
     db
       .select({ p: products, v: vendors })
       .from(products)
       .innerJoin(vendors, eq(vendors.id, products.vendorId))
-      .where(or(ilike(products.name, like), ilike(products.category, like)))
+      .where(and(eq(products.available,true),gt(products.stock,0),eq(vendors.active,true),or(ilike(products.name, like), ilike(products.category, like))))
       .limit(limit * 2),
   ]);
   return [

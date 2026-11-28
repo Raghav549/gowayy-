@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { hotels } from "@/db/schema";
 import { getDestMap, getLoc } from "@/lib/data";
@@ -19,7 +19,7 @@ const BANDS: Record<string, [number, number, string]> = {
 export default async function HotelsPage({ searchParams }: { searchParams: Promise<{ dest?: string; band?: string; q?: string }> }) {
   const sp = await searchParams;
   const [dm, loc] = await Promise.all([getDestMap(), getLoc()]);
-  const all = await db.select().from(hotels).orderBy(asc(hotels.pricePerNight));
+  const all = await db.select().from(hotels).where(eq(hotels.active,true)).orderBy(asc(hotels.pricePerNight));
   const dest = dm.list.find((d) => d.slug === sp.dest);
   const band = sp.band ? BANDS[sp.band] : undefined;
   const q = (sp.q ?? "").trim().toLowerCase().slice(0, 80);

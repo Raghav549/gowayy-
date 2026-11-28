@@ -1,4 +1,4 @@
-import { asc, ilike } from "drizzle-orm";
+import { asc, eq, ilike } from "drizzle-orm";
 import { db } from "@/db";
 import { cabTypes, locations } from "@/db/schema";
 import { ensureSeeded } from "@/lib/seed";
@@ -42,7 +42,7 @@ export default async function CabsPage({ searchParams }: { searchParams: Promise
   await ensureSeeded();
   const [locs, cabs, loc, dm] = await Promise.all([
     db.select().from(locations).orderBy(asc(locations.name)),
-    db.select().from(cabTypes).orderBy(asc(cabTypes.baseFare)),
+    db.select().from(cabTypes).where(eq(cabTypes.active,true)).orderBy(asc(cabTypes.baseFare)),
     getLoc(),
     getDestMap(),
   ]);

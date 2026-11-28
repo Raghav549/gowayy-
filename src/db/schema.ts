@@ -8,6 +8,8 @@ import {
   timestamp,
   jsonb,
   uniqueIndex,
+  primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -81,6 +83,8 @@ export const hotels = pgTable("hotels", {
   amenities: text("amenities").array().notNull().default([]),
   area: text("area").notNull(),
   locationId: integer("location_id"),
+  roomsTotal: integer("rooms_total").default(10).notNull(),
+  active: boolean("active").default(true).notNull(),
 });
 
 export const packages = pgTable("packages", {
@@ -100,6 +104,8 @@ export const packages = pgTable("packages", {
   groupSize: text("group_size").notNull(),
   rating: real("rating").default(4.6).notNull(),
   featured: boolean("featured").default(false).notNull(),
+  seatsTotal: integer("seats_total").default(20).notNull(),
+  active: boolean("active").default(true).notNull(),
 });
 
 export const cabTypes = pgTable("cab_types", {
@@ -112,6 +118,7 @@ export const cabTypes = pgTable("cab_types", {
   baseFare: integer("base_fare").notNull(),
   perKm: integer("per_km").notNull(),
   etaMins: integer("eta_mins").notNull(),
+  active: boolean("active").default(true).notNull(),
 });
 
 export const vendors = pgTable("vendors", {
@@ -131,6 +138,7 @@ export const vendors = pgTable("vendors", {
   cuisines: text("cuisines").array().notNull().default([]),
   openNow: boolean("open_now").default(true).notNull(),
   locationId: integer("location_id"),
+  active: boolean("active").default(true).notNull(),
 });
 
 export const products = pgTable("products", {
@@ -148,6 +156,7 @@ export const products = pgTable("products", {
   available: boolean("available").default(true).notNull(),
   tag: text("tag").default("").notNull(),
   isExperience: boolean("is_experience").default(false).notNull(),
+  stock: integer("stock").default(100).notNull(),
 });
 
 export const coupons = pgTable("coupons", {
@@ -188,9 +197,13 @@ export const orders = pgTable("orders", {
   couponCode: text("coupon_code").default("").notNull(),
   paymentMethod: text("payment_method").notNull(),
   paymentStatus: text("payment_status").notNull(),
-  autoProgress: boolean("auto_progress").default(true).notNull(),
+  autoProgress: boolean("auto_progress").default(false).notNull(),
   riderName: text("rider_name").notNull(),
   riderPhone: text("rider_phone").notNull(),
+  riderLat: real("rider_lat"),
+  riderLng: real("rider_lng"),
+  riderLocationUpdatedAt: timestamp("rider_location_updated_at"),
+  inventoryReleased: boolean("inventory_released").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -249,7 +262,7 @@ export const payments = pgTable("payments", {
   txnId: text("txn_id").notNull(),
   provider: text("provider").default("gowayy-sandbox").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [uniqueIndex("payments_txn_id_unique").on(table.txnId)]);
 
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
@@ -272,3 +285,75 @@ export const favorites = pgTable(
   },
   (t) => [uniqueIndex("fav_unique").on(t.userId, t.kind, t.refId)],
 );
+
+// Shared identity and tenant model used by the independently deployed Business
+// and Admin apps. These live in the customer bootstrap too, so a fresh Gowayy
+// database is immediately ready for all three applications.
+export const organizations = pgTable("gw_organizations", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  displayName: text("display_name").notNull(),
+  description: text("description").default("").notNull(),
+  contactEmail: text("contact_email").notNull(),
+  contactPhone: text("contact_phone").default("").notNull(),
+  address: text("address").default("").notNull(),
+  status: text("status").default("pending").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const organizationMemberships = pgTable(
+  "gw_organization_memberships",
+  {
+    userId: integer("user_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    role: text("role").notNull(),
+    status: text("status").default("active").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.organizationId] }), index("gw_org_member_lookup").on(t.organizationId, t.role)],
+);
+
+export const organizationResources = pgTable(
+  "gw_organization_resources",
+  {
+    organizationId: text("organization_id").notNull(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: integer("resource_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.organizationId, t.resourceType, t.resourceId] }),
+    index("gw_organization_resources_reverse").on(t.resourceType, t.resourceId),
+  ],
+);
+
+export const partnerAudit = pgTable("gw_partner_audit", {
+  id: serial("id").primaryKey(),
+  actorId: integer("actor_id"),
+  organizationId: text("organization_id"),
+  action: text("action").notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const fleetVehicles = pgTable(
+  "gw_fleet_vehicles",
+  {
+    id: serial("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    cabTypeId: integer("cab_type_id").notNull(),
+    registration: text("registration").notNull(),
+    driverName: text("driver_name").default("").notNull(),
+    driverPhone: text("driver_phone").default("").notNull(),
+    status: text("status").default("active").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("gw_fleet_vehicle_registration").on(t.registration), index("gw_fleet_vehicle_lookup").on(t.cabTypeId, t.status)],
+);
+
+export const paymentWebhookEvents = pgTable("gw_payment_webhook_events", {
+  eventId: text("event_id").primaryKey(),
+  provider: text("provider").notNull(),
+  eventType: text("event_type").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+});
