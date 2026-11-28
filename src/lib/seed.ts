@@ -510,11 +510,9 @@ async function applyPhotos(client: PoolClient) {
 
 async function seedAll(db: NodePgDatabase) {
   // users
-  await db.insert(users).values([
-    ...(process.env.NODE_ENV === "production" ? [] : [
+  if (process.env.NODE_ENV !== "production") await db.insert(users).values([
       { name: "gowayy admin", email: "admin@gowayy.in", phone: "9000000001", passwordHash: hashPassword("admin123"), role: "admin", wallet: 0, address: "gowayy HQ, Chowrasta, Darjeeling" },
       { name: "Aarav Sharma", email: "demo@gowayy.in", phone: "9000000002", passwordHash: hashPassword("demo1234"), role: "user", wallet: 3000, address: "Room 12, Mall Road, Darjeeling 734101" },
-    ]),
   ]);
 
   const dRows = await db
