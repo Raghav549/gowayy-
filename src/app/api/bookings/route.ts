@@ -132,8 +132,10 @@ export async function POST(req: Request) {
   const codes = priced.map((d) => makeCode(d.type === "cab" ? "CB" : d.type === "hotel" ? "HT" : d.type === "package" ? "TP" : "EX"));
   const tripId = makeCode("TRIP");
 
+  const requestedPayment = (b.payment ?? { method: "wallet" }) as PayInput;
+  if (process.env.NODE_ENV === "production" && (requestedPayment.method === "upi" || requestedPayment.method === "card")) return fail("Online booking payments require a verified provider", 503);
   const pay = await charge({
-    userId: u.id, amount: grand, input: (b.payment ?? { method: "wallet" }) as PayInput, kind: "booking",
+    userId: u.id, amount: grand, input: requestedPayment, kind: "booking",
     refCode: codes[0], allowCod: priced.every((d) => d.type === "cab"),
   });
   if (!pay.ok) return fail(pay.error, 402);
