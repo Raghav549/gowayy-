@@ -37,10 +37,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
     if (exists) return fail("An account with this email already exists", 409);
     const [u] = await db
       .insert(users)
-      .values({ name, email, phone: String(b.phone ?? "").trim(), passwordHash: hashPassword(password), wallet: 500 })
+      .values({ name, email, phone: String(b.phone ?? "").trim(), passwordHash: hashPassword(password), wallet: process.env.NODE_ENV === "production" ? 0 : 500 })
       .returning({ id: users.id, role: users.role });
-    await db.insert(payments).values({ userId: u.id, kind: "bonus", refCode: "welcome", amount: 500, method: "wallet", status: "paid", txnId: `bonus_${u.id}` });
-    await notify(u.id, "Welcome to gowayy", "₹500 welcome credits have been added to your wallet. Start exploring the hills!", "promo", "/explore");
+    if (process.env.NODE_ENV !== "production") {
+      await db.insert(payments).values({ userId: u.id, kind: "bonus", refCode: "welcome", amount: 500, method: "wallet", status: "paid", txnId: `bonus_${u.id}` });
+    }
+    await notify(u.id, "Welcome to gowayy", "Explore local shops, stays and journeys.", "info", "/explore");
     await createSession(u.id);
     return ok({ role: u.role });
   }
