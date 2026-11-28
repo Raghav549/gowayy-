@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ImageUpload } from "@/app/components/ImageUpload";
 import {redirect} from "next/navigation";
 import {pool,getUser,mode,configured,activeOrganizations} from "@/lib/core";
 
@@ -15,7 +16,7 @@ function ItemForm({row,kind}:{row:RecordRow;kind:string}) {
  return <details className="item" style={{display:"block"}}><summary style={{cursor:"pointer"}}><strong>{String(row.name)}</strong><small>{kind} #{id} · edit listing</small></summary>
  <form action="/api/manage" method="post" style={{paddingTop:14}}><input type="hidden" name="action" value="edit-entity"/><input type="hidden" name="entity" value={kind}/><input type="hidden" name="id" value={id}/>
   <TextField name="name" label="Listing name" defaultValue={String(row.name||"")} required/>
-  {kind!=="cab_type"?<TextField name="image" label="Image URL" defaultValue={String(row.image||"")}/>:null}
+  {kind!=="cab_type"?<ImageUpload initial={String(row.image||"")}/>:null}
   <TextField name="price" label="Price (₹)" type="number" defaultValue={Number(row[kind==="hotel"?"price_per_night":kind==="cab_type"?"base_fare":"price"]||0)}/>
   <Submit>Save changes</Submit>
  </form></details>;
@@ -27,7 +28,7 @@ function CmsForm({row,type}:{row?:RecordRow;type:"category"|"banner"}) {
  <TextField name="label" label={isCategory?"Category title":"Banner badge"} defaultValue={String(row?.label||"")} required/>
  {!isCategory?<><TextField name="title" label="Banner headline" defaultValue={String(row?.title||"")}/><TextField name="detail" label="Offer terms" defaultValue={String(row?.detail||"")}/><TextField name="code" label="Coupon code" defaultValue={String(row?.code||"")}/></>:null}
  <TextField name="href" label="Customer destination link" defaultValue={String(row?.href||"/")} required/>
- <TextField name="image" label="Image path / approved HTTPS URL" defaultValue={String(row?.image_url||"")} required/>
+ <ImageUpload initial={String(row?.image_url||"")}/>
  {isCategory?<label className="field"><span>Category gradient</span><select name="ring" className="input" defaultValue={String(row?.ring||"violet")}><option value="violet">Violet</option><option value="green">Green</option><option value="orange">Orange</option><option value="amber">Amber</option><option value="pink">Pink</option><option value="sky">Sky</option><option value="red">Red</option></select></label>:null}
  <TextField name="position" label="Display order" type="number" defaultValue={Number(row?.position||0)}/>
  <label className="field" style={{display:"flex",alignItems:"center",gap:8}}><input type="checkbox" name="enabled" defaultChecked={row?.enabled!==false}/><span style={{margin:0}}>Visible</span></label>
