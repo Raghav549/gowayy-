@@ -25,6 +25,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   if (action === "login") {
     const [u] = await db.select({ id: users.id, role: users.role, passwordHash: users.passwordHash }).from(users).where(eq(users.email, email)).limit(1);
     if (!u || !verifyPassword(password, u.passwordHash)) return fail("Incorrect email or password", 401);
+    // Block the historically shipped bootstrap admin credentials until rotated.
+    if (process.env.NODE_ENV === "production" && email === "admin@gowayy.in" && u.role === "admin" && verifyPassword("admin123", u.passwordHash)) return fail("Administrator password must be rotated before access", 403);
     await createSession(u.id);
     return ok({ role: u.role });
   }
