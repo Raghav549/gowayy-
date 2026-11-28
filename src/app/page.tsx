@@ -10,6 +10,7 @@ import { LocationPicker, ProfileButton } from "@/components/Nav";
 import { CategoryRail } from "@/components/CategoryRail";
 import { OfferSlides } from "@/components/OfferSlides";
 import { getOfferSlides } from "@/lib/offers";
+import { readCategories, readBanners } from "@/lib/platform-cms";
 import { AttractionCard, DestinationCard, HotelCard, PackageCard, VendorCard } from "@/components/Cards";
 import { ProductCard } from "@/components/ProductCard";
 import { SectionHead } from "@/components/ui";
@@ -37,6 +38,7 @@ export default async function HomePage() {
     db.select().from(attractions).orderBy(sql`(${attractions.destinationId} = ${loc?.id ?? 0}) desc`, desc(attractions.rating)).limit(6),
     getOfferSlides(),
   ]);
+  const [homeCategories, homeBanners] = await Promise.all([readCategories(), readBanners(slides)]);
   const seen = new Set<string>();
   const groceries = groceryRows.filter((r) => (seen.has(r.p.name) ? false : seen.add(r.p.name))).slice(0, 10);
   const names = Object.fromEntries(dm.list.map((d) => [d.id, d.name]));
@@ -60,9 +62,9 @@ export default async function HomePage() {
         <SearchBox big placeholder="Search stays, food, tours…" />
       </div>
 
-      <CategoryRail className="mt-5" />
+      <CategoryRail className="mt-5" categories={homeCategories} />
 
-      <OfferSlides slides={slides} className="anim-up mt-3" />
+      <OfferSlides slides={homeBanners} className="anim-up mt-3" />
 
 
       <SectionHead title="Explore destinations" href="/explore" />
