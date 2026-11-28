@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import crypto from "node:crypto";
-import {pool,mode,configured,verifyPassword,hashPassword,createToken,sessionCookie,sameOrigin,nextPath} from "@/lib/core";
+import {pool,mode,configured,verifyPassword,hashPassword,createToken,sessionCookie,sameOrigin,nextPath,requireUser} from "@/lib/core";
 export const dynamic="force-dynamic";
 function err(req:Request,code:string){return NextResponse.redirect(nextPath(req,code==="register"?"/register?error=invalid":"/login?error="+encodeURIComponent(code)),303);}
 function field(f:FormData,key:string,max=200){return String(f.get(key)||"").trim().slice(0,max);}
@@ -14,11 +14,34 @@ export async function POST(req:Request){
   try {
    const {rows}=await pool.query<{id:number;role:string;password_hash:string;email:string}>("SELECT id,role,password_hash,email FROM users WHERE email=$1 LIMIT 1",[email]);
    const user=rows[0];
-   if(!user||!verifyPassword(password,user.password_hash)||mode==="admin"&&user.role!=="admin")return err(req,"invalid");
-   // Previously shipped bootstrap credentials must be rotated and must never authenticate the new console.
-   if(user.role==="admin" && user.email==="admin@gowayy.in" && verifyPassword("admin123",user.password_hash))return err(req,"invalid");
+   if(!user||mode==="admin"&&user.role!=="admin")return err(req,"invalid");
+   // A one-time environment credential may rotate the historically shipped
+   // bootstrap account. It is accepted only while the database still has the
+   // known legacy hash, and never acts as a permanent login bypass.
+   const legacyAdmin=user.role==="admin"&&user.email==="admin@gowayy.in"&&verifyPassword("admin123",user.password_hash);
+   if(legacyAdmin&&mode==="admin"){
+    const bootstrap=process.env.ADMIN_BOOTSTRAP_PASSWORD||"";
+    if(bootstrap.length<16||password!==bootstrap)return err(req,"invalid");
+    const rotated=hashPassword(password);
+    const result=await pool.query("UPDATE users SET password_hash=$1 WHERE id=$2 AND password_hash=$3",[rotated,user.id,user.password_hash]);
+    if(result.rowCount!==1)return err(req,"invalid");
+    user.password_hash=rotated;
+   }
+   if(!verifyPassword(password,user.password_hash)||legacyAdmin&&mode!=="admin")return err(req,"invalid");
    const r=NextResponse.redirect(nextPath(req,"/"),303);r.cookies.set({...sessionCookie(),value:createToken(user.id)});return r;
   }catch(e){console.error("[console login]",(e as Error).message);return err(req,"invalid");}
+ }
+ if(action==="change-password"){
+  const current=String(form.get("currentPassword")||""),next=String(form.get("newPassword")||"");
+  const user=await requireUser();
+  const done=(status:string)=>NextResponse.redirect(nextPath(req,"/?password="+encodeURIComponent(status)),303);
+  if(!user||next.length<12||next===current)return done("invalid");
+  try{
+   const {rows}=await pool.query<{password_hash:string}>("SELECT password_hash FROM users WHERE id=$1 LIMIT 1",[user.id]);
+   if(!rows[0]||!verifyPassword(current,rows[0].password_hash))return done("invalid");
+   await pool.query("UPDATE users SET password_hash=$1 WHERE id=$2",[hashPassword(next),user.id]);
+   return done("changed");
+  }catch(e){console.error("[console password]",(e as Error).message);return done("invalid");}
  }
  if(action==="register"&&mode==="business"){
   const email=field(form,"email",250).toLowerCase(),password=String(form.get("password")||""),name=field(form,"name",100);

@@ -16,6 +16,6 @@ export default async function Login({searchParams}:{searchParams:Promise<{error?
    <label className="field"><span>Password</span><input className="input" name="password" type="password" autoComplete="current-password" minLength={6} required/></label>
    <button className="btn" style={{width:"100%"}}>Sign in securely</button>
   </form>
-  {mode==="business"?<p className="copy" style={{marginTop:20}}>New business? <Link href="/register" style={{color:"#7c3aed",fontWeight:800}}>Create a partner account</Link></p>:<p className="copy" style={{marginTop:18}}>Admin access is granted only to verified, existing platform administrators. Default demo credentials are rejected.</p>}
+  {mode==="business"?<p className="copy" style={{marginTop:20}}>New business? <Link href="/register" style={{color:"#7c3aed",fontWeight:800}}>Create a partner account</Link></p>:<p className="copy" style={{marginTop:18}}>Admin access is granted only to verified platform administrators. The deployment credential rotates the blocked demo password on first use.</p>}
  </div>;
 }
