@@ -75,7 +75,7 @@ export function OfferSlides({ slides, className = "" }: { slides: OfferSlide[]; 
             {/* eslint-disable-next-line @next/next/no-img-element -- pre-sized local webp */}
             <img
               src={s.img}
-              srcSet={`${s.img.replace(/\.webp$/, "-960.webp")} 960w, ${s.img} 1456w`}
+              srcSet={s.img.startsWith("/media/banners/") && s.img.endsWith(".webp") ? `${s.img.replace(/\.webp$/, "-960.webp")} 960w, ${s.img} 1456w` : undefined}
               sizes="(min-width: 640px) 50vw, 92vw"
               alt=""
               width={1456}
