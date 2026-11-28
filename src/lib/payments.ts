@@ -78,6 +78,8 @@ export async function charge(a: {
   allowCod?: boolean;
 }): Promise<ChargeResult> {
   const { userId, amount, input, kind, refCode } = a;
+  // Fail closed: a simulated PSP must never create a paid real-money transaction.
+  if (process.env.NODE_ENV === "production" && (input.method === "upi" || input.method === "card")) return { ok: false, error: "Verified online payments are not yet configured" };
   if (amount <= 0) {
     const txnId = "gw_free_" + crypto.randomBytes(4).toString("hex");
     await record(userId, kind, refCode, 0, "free", "paid", txnId);
@@ -120,6 +122,7 @@ export async function refundToWallet(userId: number, amount: number, refCode: st
 
 export async function topUpWallet(userId: number, amount: number, input: PayInput): Promise<ChargeResult> {
   if (input.method !== "upi" && input.method !== "card") return { ok: false, error: "Use UPI or card to add money" };
+  if (process.env.NODE_ENV === "production") return { ok: false, error: "Wallet top-ups require a verified payment gateway" };
   if (!Number.isFinite(amount) || amount < 100 || amount > 50000) return { ok: false, error: "Enter an amount between ₹100 and ₹50,000" };
   const r = await gateway.charge({ amount, method: input.method, input });
   if (!r.ok) {
