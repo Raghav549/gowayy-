@@ -10,6 +10,7 @@ import { LocationPicker, ProfileButton } from "@/components/Nav";
 import { CategoryRail } from "@/components/CategoryRail";
 import { OfferSlides } from "@/components/OfferSlides";
 import { getOfferSlides } from "@/lib/offers";
+import { readCategories, readBanners } from "@/lib/platform-cms";
 import { AttractionCard, DestinationCard, HotelCard, PackageCard, VendorCard } from "@/components/Cards";
 import { ProductCard } from "@/components/ProductCard";
 import { SectionHead } from "@/components/ui";
@@ -23,20 +24,21 @@ export default async function HomePage() {
   const near = (destCol: typeof vendors.destinationId) => sql`(${destCol} = ${loc?.id ?? 0}) desc`;
 
   const [pkgs, groceryRows, restaurants, stays, shops, attrs, slides] = await Promise.all([
-    db.select().from(packages).where(eq(packages.featured, true)).orderBy(desc(packages.rating)).limit(6),
+    db.select().from(packages).where(and(eq(packages.featured, true),eq(packages.active,true))).orderBy(desc(packages.rating)).limit(6),
     db
       .select({ p: products, v: vendors })
       .from(products)
       .innerJoin(vendors, eq(vendors.id, products.vendorId))
-      .where(and(eq(vendors.kind, "grocery"), eq(products.available, true)))
+      .where(and(eq(vendors.kind, "grocery"),eq(vendors.active,true),eq(products.available, true),sql`${products.stock}>0`))
       .orderBy(near(vendors.destinationId), desc(products.tag), desc(vendors.rating))
       .limit(60),
-    db.select().from(vendors).where(eq(vendors.kind, "restaurant")).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
-    db.select().from(hotels).orderBy(sql`(${hotels.destinationId} = ${loc?.id ?? 0}) desc`, desc(hotels.rating)).limit(6),
-    db.select().from(vendors).where(eq(vendors.kind, "shop")).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
+    db.select().from(vendors).where(and(eq(vendors.kind, "restaurant"),eq(vendors.active,true))).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
+    db.select().from(hotels).where(eq(hotels.active,true)).orderBy(sql`(${hotels.destinationId} = ${loc?.id ?? 0}) desc`, desc(hotels.rating)).limit(6),
+    db.select().from(vendors).where(and(eq(vendors.kind, "shop"),eq(vendors.active,true))).orderBy(near(vendors.destinationId), desc(vendors.rating)).limit(6),
     db.select().from(attractions).orderBy(sql`(${attractions.destinationId} = ${loc?.id ?? 0}) desc`, desc(attractions.rating)).limit(6),
     getOfferSlides(),
   ]);
+  const [homeCategories, homeBanners] = await Promise.all([readCategories(), readBanners(slides)]);
   const seen = new Set<string>();
   const groceries = groceryRows.filter((r) => (seen.has(r.p.name) ? false : seen.add(r.p.name))).slice(0, 10);
   const names = Object.fromEntries(dm.list.map((d) => [d.id, d.name]));
@@ -60,9 +62,9 @@ export default async function HomePage() {
         <SearchBox big placeholder="Search stays, food, tours…" />
       </div>
 
-      <CategoryRail className="mt-5" />
+      <CategoryRail className="mt-5" categories={homeCategories} />
 
-      <OfferSlides slides={slides} className="anim-up mt-3" />
+      <OfferSlides slides={homeBanners} className="anim-up mt-3" />
 
 
       <SectionHead title="Explore destinations" href="/explore" />

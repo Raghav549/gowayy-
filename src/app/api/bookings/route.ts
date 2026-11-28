@@ -1,10 +1,10 @@
-import { eq, ilike, inArray } from "drizzle-orm";
+import { and, eq, ilike, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { bookings, cabTypes, coupons, hotels, locations, packages, products, vendors } from "@/db/schema";
+import { bookings, cabTypes, coupons, fleetVehicles, hotels, locations, packages, products, vendors } from "@/db/schema";
 import { body, fail, ok, needUser } from "@/lib/api";
 import { photo } from "@/lib/photos";
 import { pick } from "@/lib/images";
-import { charge, refundToWallet, type PayInput } from "@/lib/payments";
+import { charge, refundPayment, type PayInput } from "@/lib/payments";
 import { cabFare, couponDiscount, TAX, withTax } from "@/lib/pricing";
 import { notify } from "@/lib/services";
 import { hillMinutes, makeCode, nightsBetween, roadKm, todayISO } from "@/lib/utils";
@@ -15,9 +15,8 @@ type Draft = {
   type: string; refId: number; title: string; subtitle: string; image: string; destinationId: number;
   startDate: string; endDate: string; guests: number; subtotal: number; taxRate: number;
   details: Record<string, string | number | boolean>; bundle?: boolean;
+  capacity?: number;
 };
-
-const DRIVERS = ["Karma Sherpa", "Ramesh Chettri", "Pasang Bhutia", "Nirmal Subba", "Tashi Lama", "Mohan Rai"];
 
 type B = {
   type?: string; refId?: number; startDate?: string; endDate?: string; guests?: number; rooms?: number; coupon?: string;
@@ -30,20 +29,21 @@ async function buildCab(opts: { fromId: number; toId: number; cabTypeId: number;
   const from = locs.find((l) => l.id === opts.fromId);
   const to = locs.find((l) => l.id === opts.toId);
   const [cab] = await db.select().from(cabTypes).where(eq(cabTypes.id, opts.cabTypeId)).limit(1);
-  if (!from || !to || !cab) return "Choose pickup, drop and a cab type";
+  if (!from || !to || !cab || !cab.active) return "Choose pickup, drop and an available cab type";
   if (from.id === to.id) return "Pickup and drop must be different";
   if (opts.guests > cab.capacity) return `${cab.name} seats up to ${cab.capacity} passengers`;
+  const activeFleet = await db.select({ id: fleetVehicles.id }).from(fleetVehicles).where(and(eq(fleetVehicles.cabTypeId, cab.id), eq(fleetVehicles.status, "active")));
+  if (!activeFleet.length) return `No verified ${cab.name} is available yet`;
   const km = roadKm(from.lat, from.lng, to.lat, to.lng);
   const fare = cabFare(cab, km, opts.roundTrip);
   return {
     type: "cab", refId: cab.id, title: `${from.name.split(" (")[0]} → ${to.name.split(" (")[0]}`,
     subtitle: `${cab.name} · ${km} km${opts.roundTrip ? " · round trip" : ""}`, image: photo("cab", cab.slug) ?? pick("jeep", cab.id, 800),
     destinationId: to.destinationId, startDate: opts.date, endDate: "", guests: opts.guests, subtotal: fare, taxRate: TAX.cab, bundle: opts.bundle,
+    capacity: activeFleet.length,
     details: {
       from: from.name, to: to.name, km, mins: hillMinutes(km), cab: cab.name, model: cab.model, time: opts.time || "09:00",
-      roundTrip: opts.roundTrip, driver: DRIVERS[Math.floor(Math.random() * DRIVERS.length)],
-      vehicle: `WB 74 ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(1000 + Math.random() * 8999)}`,
-      otp: String(Math.floor(1000 + Math.random() * 8999)), toLat: to.lat, toLng: to.lng,
+      roundTrip: opts.roundTrip, toLat: to.lat, toLng: to.lng,
     },
   };
 }
@@ -61,13 +61,14 @@ export async function POST(req: Request) {
 
   if (type === "hotel") {
     const [h] = await db.select().from(hotels).where(eq(hotels.id, Number(b.refId))).limit(1);
-    if (!h) return fail("Hotel not found", 404);
+    if (!h || !h.active) return fail("Hotel not found", 404);
     const nights = nightsBetween(startDate, String(b.endDate));
     if (nights < 1) return fail("Check-out must be after check-in");
     const rooms = Math.max(1, Math.min(6, Math.floor(Number(b.rooms) || 1)));
     drafts.push({
       type, refId: h.id, title: h.name, subtitle: `${nights} night${nights > 1 ? "s" : ""} · ${rooms} room${rooms > 1 ? "s" : ""}`, image: h.image,
       destinationId: h.destinationId, startDate, endDate: String(b.endDate), guests, subtotal: h.pricePerNight * nights * rooms, taxRate: TAX.hotel,
+      capacity: h.roomsTotal,
       details: { nights, rooms, area: h.area, stay: h.type },
     });
     if (b.addCab) {
@@ -80,11 +81,12 @@ export async function POST(req: Request) {
     }
   } else if (type === "package") {
     const [p] = await db.select().from(packages).where(eq(packages.id, Number(b.refId))).limit(1);
-    if (!p) return fail("Package not found", 404);
+    if (!p || !p.active) return fail("Package not found", 404);
     const end = new Date(new Date(startDate).getTime() + (p.days - 1) * 86400000).toISOString().slice(0, 10);
     drafts.push({
       type, refId: p.id, title: p.name, subtitle: `${p.days} days · ${guests} traveller${guests > 1 ? "s" : ""}`, image: p.image,
       destinationId: p.destinationIds[0], startDate, endDate: end, guests, subtotal: p.price * guests, taxRate: TAX.package,
+      capacity: p.seatsTotal,
       details: { days: p.days, theme: p.theme },
     });
     if (b.addCab) {
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
     }
   } else if (type === "experience") {
     const [row] = await db.select({ p: products, v: vendors }).from(products).innerJoin(vendors, eq(vendors.id, products.vendorId)).where(eq(products.id, Number(b.refId))).limit(1);
-    if (!row || !row.p.isExperience) return fail("Experience not found", 404);
+    if (!row || !row.p.isExperience || !row.p.available || row.p.stock<guests || !row.v.active) return fail("Experience not found", 404);
     drafts.push({
       type, refId: row.p.id, title: row.p.name, subtitle: row.v.name, image: row.p.image || row.v.image, destinationId: row.v.destinationId,
       startDate, endDate: "", guests, subtotal: row.p.price * guests, taxRate: TAX.experience, details: { host: row.v.name, area: row.v.area },
@@ -132,25 +134,56 @@ export async function POST(req: Request) {
   const codes = priced.map((d) => makeCode(d.type === "cab" ? "CB" : d.type === "hotel" ? "HT" : d.type === "package" ? "TP" : "EX"));
   const tripId = makeCode("TRIP");
 
+  const requestedPayment = (b.payment ?? { method: "wallet" }) as PayInput;
   const pay = await charge({
-    userId: u.id, amount: grand, input: (b.payment ?? { method: "wallet" }) as PayInput, kind: "booking",
+    userId: u.id, amount: grand, input: requestedPayment, kind: "booking",
     refCode: codes[0], allowCod: priced.every((d) => d.type === "cab"),
   });
   if (!pay.ok) return fail(pay.error, 402);
+  if (pay.status === "requires_action") return ok({ payment: pay.gateway });
 
   try {
-    await db.insert(bookings).values(
-      priced.map((d, i) => ({
-        code: codes[i], tripId, userId: u.id, type: d.type, refId: d.refId, title: d.title, subtitle: d.subtitle, image: d.image,
-        destinationId: d.destinationId, startDate: d.startDate, endDate: d.endDate, guests: d.guests, subtotal: d.subtotal, tax: d.tax,
-        discount: d.discount, amount: d.total, status: "confirmed", paymentStatus: pay.status, paymentMethod: pay.method,
-        details: d.bundle ? { ...d.details, bundle: true } : d.details,
-      })),
-    );
+    await db.transaction(async (tx) => {
+      for (const d of priced) {
+        // A per-resource advisory lock makes overlapping requests queue behind
+        // one another, so the following availability check cannot overbook.
+        const scope = d.type === "hotel" ? 98101 : d.type === "package" ? 98102 : d.type === "cab" ? 98103 : 98104;
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(${scope}, ${d.refId})`);
+        if (d.type === "hotel") {
+          const q = await tx.execute<{ reserved: number }>(sql`
+            SELECT COALESCE(SUM((details->>'rooms')::int),0)::int reserved FROM bookings
+            WHERE type='hotel' AND ref_id=${d.refId} AND status NOT IN ('cancelled','refunded')
+              AND start_date < ${d.endDate} AND end_date > ${d.startDate}`);
+          const requested = Number(d.details.rooms || 1);
+          if (Number(q.rows[0]?.reserved || 0) + requested > Number(d.capacity || 0)) throw new Error("Those rooms were just booked. Choose different dates or fewer rooms.");
+        }
+        if (d.type === "package") {
+          const q = await tx.execute<{ reserved: number }>(sql`
+            SELECT COALESCE(SUM(guests),0)::int reserved FROM bookings
+            WHERE type='package' AND ref_id=${d.refId} AND start_date=${d.startDate} AND status NOT IN ('cancelled','refunded')`);
+          if (Number(q.rows[0]?.reserved || 0) + d.guests > Number(d.capacity || 0)) throw new Error("This departure no longer has enough seats.");
+        }
+        if (d.type === "cab") {
+          const q = await tx.execute<{ reserved: number }>(sql`
+            SELECT count(*)::int reserved FROM bookings
+            WHERE type='cab' AND ref_id=${d.refId} AND start_date=${d.startDate}
+              AND details->>'time'=${String(d.details.time || "09:00")} AND status NOT IN ('cancelled','refunded')`);
+          if (Number(q.rows[0]?.reserved || 0) >= Number(d.capacity || 0)) throw new Error("All verified vehicles in this class are already assigned for that time.");
+        }
+      }
+      await tx.insert(bookings).values(
+        priced.map((d, i) => ({
+          code: codes[i], tripId, userId: u.id, type: d.type, refId: d.refId, title: d.title, subtitle: d.subtitle, image: d.image,
+          destinationId: d.destinationId, startDate: d.startDate, endDate: d.endDate, guests: d.guests, subtotal: d.subtotal, tax: d.tax,
+          discount: d.discount, amount: d.total, status: d.type === "cab" ? "requested" : "confirmed", paymentStatus: pay.status, paymentMethod: pay.method,
+          details: d.bundle ? { ...d.details, bundle: true } : d.details,
+        })),
+      );
+    });
   } catch (e) {
-    if (pay.status === "paid") await refundToWallet(u.id, grand, codes[0]);
-    throw e;
+    if (pay.status === "paid") await refundPayment(u.id, grand, codes[0], pay.method, pay.txnId);
+    return fail(e instanceof Error ? e.message : "Availability changed", 409);
   }
-  await notify(u.id, `Booking confirmed · ${priced[0].title}`, `${codes[0]} · ₹${grand.toLocaleString("en-IN")}${priced.length > 1 ? " · cab transfers included" : ""}. Tap to plan the rest of your trip.`, "booking", `/bookings/${codes[0]}`);
+  await notify(u.id, `${priced[0].type === "cab" ? "Ride requested" : "Booking confirmed"} · ${priced[0].title}`, `${codes[0]} · ₹${grand.toLocaleString("en-IN")}${priced.length > 1 ? " · transfer request included" : ""}.`, "booking", `/bookings/${codes[0]}`);
   return ok({ codes, redirect: `/bookings/${codes[0]}?new=1` });
 }

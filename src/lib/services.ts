@@ -22,7 +22,8 @@ export const STATUS_COPY: Record<string, { label: string; note: string }> = {
 export type OrderRow = typeof orders.$inferSelect;
 
 export async function syncOrder(o: OrderRow): Promise<OrderRow> {
-  if (!o.autoProgress || o.status === "delivered" || o.status === "cancelled") return o;
+  // Production never fabricates a fulfillment timeline; real partner events must drive status.
+  if (process.env.NODE_ENV === "production" || !o.autoProgress || o.status === "delivered" || o.status === "cancelled") return o;
   const secs = (Date.now() - new Date(o.createdAt).getTime()) / 1000;
   let target = 0;
   AT.forEach((t, i) => {

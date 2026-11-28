@@ -25,6 +25,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
   if (action === "login") {
     const [u] = await db.select({ id: users.id, role: users.role, passwordHash: users.passwordHash }).from(users).where(eq(users.email, email)).limit(1);
     if (!u || !verifyPassword(password, u.passwordHash)) return fail("Incorrect email or password", 401);
+    // Block the historically shipped bootstrap admin credentials until rotated.
+    if (process.env.NODE_ENV === "production" && email === "admin@gowayy.in" && u.role === "admin" && verifyPassword("admin123", u.passwordHash)) return fail("Administrator password must be rotated before access", 403);
     await createSession(u.id);
     return ok({ role: u.role });
   }
@@ -37,10 +39,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ action: string
     if (exists) return fail("An account with this email already exists", 409);
     const [u] = await db
       .insert(users)
-      .values({ name, email, phone: String(b.phone ?? "").trim(), passwordHash: hashPassword(password), wallet: 500 })
+      .values({ name, email, phone: String(b.phone ?? "").trim(), passwordHash: hashPassword(password), wallet: process.env.NODE_ENV === "production" ? 0 : 500 })
       .returning({ id: users.id, role: users.role });
-    await db.insert(payments).values({ userId: u.id, kind: "bonus", refCode: "welcome", amount: 500, method: "wallet", status: "paid", txnId: `bonus_${u.id}` });
-    await notify(u.id, "Welcome to gowayy", "₹500 welcome credits have been added to your wallet. Start exploring the hills!", "promo", "/explore");
+    if (process.env.NODE_ENV !== "production") {
+      await db.insert(payments).values({ userId: u.id, kind: "bonus", refCode: "welcome", amount: 500, method: "wallet", status: "paid", txnId: `bonus_${u.id}` });
+    }
+    await notify(u.id, "Welcome to gowayy", "Explore local shops, stays and journeys.", "info", "/explore");
     await createSession(u.id);
     return ok({ role: u.role });
   }

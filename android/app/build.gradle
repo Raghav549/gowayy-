@@ -3,9 +3,14 @@ plugins {
 }
 
 def env = System.getenv()
-def appUrl = (project.findProperty("appUrl") ?: "https://gowayydlng.vercel.app/").toString().trim()
-if (!appUrl.endsWith("/")) appUrl += "/"
-def appHost = new URI(appUrl).host
+def normalizeUrl = { Object raw ->
+    def value = raw.toString().trim()
+    if (!value.endsWith("/")) value += "/"
+    return value
+}
+def customerUrl = normalizeUrl(project.findProperty("customerUrl") ?: project.findProperty("appUrl") ?: "https://gowayy.vercel.app/")
+def businessUrl = normalizeUrl(project.findProperty("businessUrl") ?: "https://gowayy-business.vercel.app/")
+def adminUrl = normalizeUrl(project.findProperty("adminUrl") ?: "https://gowayy-admin.vercel.app/")
 
 android {
     namespace "in.gowayy.app"
@@ -18,9 +23,34 @@ android {
         // Every CI build gets a higher version code, so a new APK installs over the old one.
         versionCode((env.GITHUB_RUN_NUMBER ?: "1").toInteger())
         versionName "1.0.${env.GITHUB_RUN_NUMBER ?: "0"}"
-        resValue "string", "app_url", appUrl
-        resValue "string", "app_host", appHost
-        manifestPlaceholders = [appHost: appHost]
+    }
+
+    flavorDimensions += "portal"
+    productFlavors {
+        customer {
+            dimension "portal"
+            applicationId "in.gowayy.app"
+            resValue "string", "app_name", "Gowayy"
+            resValue "string", "app_url", customerUrl
+            resValue "string", "app_host", new URI(customerUrl).host
+            manifestPlaceholders = [appHost: new URI(customerUrl).host]
+        }
+        business {
+            dimension "portal"
+            applicationId "in.gowayy.business"
+            resValue "string", "app_name", "Gowayy Business"
+            resValue "string", "app_url", businessUrl
+            resValue "string", "app_host", new URI(businessUrl).host
+            manifestPlaceholders = [appHost: new URI(businessUrl).host]
+        }
+        admin {
+            dimension "portal"
+            applicationId "in.gowayy.admin"
+            resValue "string", "app_name", "Gowayy Admin"
+            resValue "string", "app_url", adminUrl
+            resValue "string", "app_host", new URI(adminUrl).host
+            manifestPlaceholders = [appHost: new URI(adminUrl).host]
+        }
     }
 
     signingConfigs {

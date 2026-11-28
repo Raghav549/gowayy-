@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   const amount = Math.floor(Number(b.amount));
   const r = await topUpWallet(u.id, amount, (b.payment ?? { method: "upi" }) as PayInput);
   if (!r.ok) return fail(r.error, 402);
+  if (r.status === "requires_action") return ok({ payment: r.gateway });
   await notify(u.id, "Wallet topped up", `₹${amount.toLocaleString("en-IN")} added to your gowayy wallet.`, "payment", "/profile");
   return ok();
 }

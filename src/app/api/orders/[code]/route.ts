@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { orderEvents, orderItems, orders, vendors } from "@/db/schema";
+import { orderEvents, orderItems, orders, products, vendors } from "@/db/schema";
 import { body, fail, ok, needUser } from "@/lib/api";
-import { refundToWallet } from "@/lib/payments";
+import { refundOriginalPayment } from "@/lib/payments";
 import { notify, orderEventsFor, syncOrder } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
@@ -37,9 +37,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   o = await syncOrder(o);
   if (b.action !== "cancel") return fail("Unknown action");
   if (!["placed", "confirmed"].includes(o.status)) return fail("This order can no longer be cancelled");
-  await db.update(orders).set({ status: "cancelled", paymentStatus: o.paymentStatus === "paid" ? "refunded" : o.paymentStatus }).where(eq(orders.id, o.id));
-  await db.insert(orderEvents).values({ orderId: o.id, status: "cancelled", note: "Cancelled by you." });
-  if (o.paymentStatus === "paid") await refundToWallet(u.id, o.total, o.code);
-  await notify(u.id, `Order ${o.code} cancelled`, o.paymentStatus === "paid" ? `₹${o.total} has been refunded to your gowayy wallet.` : "No charge was made.", "order", `/orders/${o.code}`);
+  const cancelled = await db.transaction(async (tx) => {
+    const [updated] = await tx.update(orders).set({
+      status: "cancelled",
+      paymentStatus: o.paymentStatus === "paid" ? "refunded" : o.paymentStatus,
+      inventoryReleased: true,
+    }).where(and(eq(orders.id, o.id), inArray(orders.status, ["placed", "confirmed"]), eq(orders.inventoryReleased, false))).returning();
+    if (!updated) return false;
+    const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, o.id));
+    for (const item of items) {
+      await tx.update(products).set({ stock: sql`${products.stock} + ${item.qty}` }).where(eq(products.id, item.productId));
+    }
+    await tx.insert(orderEvents).values({ orderId: o.id, status: "cancelled", note: "Cancelled by customer; reserved stock released." });
+    return true;
+  });
+  if (!cancelled) return fail("This order was already updated", 409);
+  if (o.paymentStatus === "paid") await refundOriginalPayment(u.id, o.total, o.code, o.paymentMethod);
+  await notify(u.id, `Order ${o.code} cancelled`, o.paymentStatus === "paid" ? `₹${o.total} refund was issued to your original payment method.` : "No charge was made.", "order", `/orders/${o.code}`);
   return ok();
 }

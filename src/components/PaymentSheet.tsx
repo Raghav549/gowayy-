@@ -9,11 +9,47 @@ import { inr } from "@/lib/utils";
 
 export type PayInput = {
   method: "wallet" | "upi" | "card" | "cod";
-  upi?: string;
-  card?: { number: string; expiry: string; cvv: string; name?: string };
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
 };
 
-type Result = { error?: string; redirect?: string };
+type PaymentSession = { provider: "razorpay"; key: string; orderId: string; amount: number; currency: "INR"; name: string; description: string };
+type Result = { error?: string; redirect?: string; payment?: PaymentSession };
+
+type RazorpayResponse = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
+type RazorpayWindow = Window & { Razorpay?: new (options: Record<string, unknown>) => { open: () => void } };
+
+function loadRazorpay() {
+  if ((window as RazorpayWindow).Razorpay) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[data-gowayy-razorpay="true"]');
+    if (existing) { existing.addEventListener("load", () => resolve(), { once: true }); existing.addEventListener("error", () => reject(new Error("Secure checkout could not load")), { once: true }); return; }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset.gowayyRazorpay = "true";
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Secure checkout could not load"));
+    document.head.appendChild(script);
+  });
+}
+
+async function openRazorpay(session: PaymentSession, email?: string): Promise<RazorpayResponse> {
+  await loadRazorpay();
+  return new Promise((resolve, reject) => {
+    const Razorpay = (window as RazorpayWindow).Razorpay;
+    if (!Razorpay) return reject(new Error("Secure checkout is unavailable"));
+    const checkout = new Razorpay({
+      key: session.key, order_id: session.orderId, amount: session.amount, currency: session.currency,
+      name: session.name, description: session.description, prefill: { email: email || "" },
+      theme: { color: "#7c3aed" },
+      handler: (response: RazorpayResponse) => resolve(response),
+      modal: { ondismiss: () => reject(new Error("Payment was cancelled")), escape: true },
+    });
+    checkout.open();
+  });
+}
 
 type SheetProps = {
   open: boolean;
@@ -39,21 +75,29 @@ function PaymentSheetBody({
   const wallet = user?.wallet ?? 0;
   const canWallet = !noWallet && wallet >= amount;
   const [method, setMethod] = useState<PayInput["method"]>(canWallet ? "wallet" : "upi");
-  const [upi, setUpi] = useState("");
-  const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
   const [phase, setPhase] = useState<"idle" | "busy" | "ok">("idle");
   const [err, setErr] = useState("");
 
   async function pay() {
     setErr("");
     setPhase("busy");
-    const input: PayInput = { method, upi: method === "upi" ? upi : undefined, card: method === "card" ? card : undefined };
+    const input: PayInput = { method };
     try {
-      const r = await onPay(input);
+      let r = await onPay(input);
       if (r.error) {
         setErr(r.error);
         setPhase("idle");
         return;
+      }
+      if (r.payment) {
+        const proof = await openRazorpay(r.payment, user?.email);
+        r = await onPay({
+          method,
+          razorpayOrderId: proof.razorpay_order_id,
+          razorpayPaymentId: proof.razorpay_payment_id,
+          razorpaySignature: proof.razorpay_signature,
+        });
+        if (r.error) { setErr(r.error); setPhase("idle"); return; }
       }
       setPhase("ok");
       setTimeout(() => {
@@ -61,8 +105,8 @@ function PaymentSheetBody({
         router.refresh();
         onClose();
       }, 1300);
-    } catch {
-      setErr("Network error — please try again");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error — please try again");
       setPhase("idle");
     }
   }
@@ -110,26 +154,8 @@ function PaymentSheetBody({
 
             <div className="mt-4 space-y-2.5">
               {!noWallet && opt("wallet", <Wallet size={18} />, "gowayy wallet", canWallet ? `Balance ${inr(wallet)}` : `Balance ${inr(wallet)} — add money in profile`, !canWallet)}
-              {opt("upi", <Smartphone size={18} />, "UPI", "GPay, PhonePe, Paytm & more")}
-              {method === "upi" && (
-                <input className="input anim-up" placeholder="yourname@okbank" value={upi} onChange={(e) => setUpi(e.target.value)} autoFocus />
-              )}
-              {opt("card", <CreditCard size={18} />, "Credit / debit card", "Visa, Mastercard, RuPay")}
-              {method === "card" && (
-                <div className="anim-up grid grid-cols-2 gap-2">
-                  <input className="input col-span-2" inputMode="numeric" placeholder="Card number" maxLength={19} value={card.number}
-                    onChange={(e) => setCard({ ...card, number: e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim() })} />
-                  <input className="input" placeholder="MM/YY" maxLength={5} value={card.expiry}
-                    onChange={(e) => {
-                      let v = e.target.value.replace(/[^\d]/g, "").slice(0, 4);
-                      if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
-                      setCard({ ...card, expiry: v });
-                    }} />
-                  <input className="input" placeholder="CVV" inputMode="numeric" maxLength={4} type="password" value={card.cvv} onChange={(e) => setCard({ ...card, cvv: e.target.value.replace(/\D/g, "") })} />
-                  <input className="input col-span-2" placeholder="Name on card" value={card.name} onChange={(e) => setCard({ ...card, name: e.target.value })} />
-                  <p className="col-span-2 text-[11px] text-ink/50">Sandbox test card: 4242 4242 4242 4242 · any future date · any CVV</p>
-                </div>
-              )}
+              {opt("upi", <Smartphone size={18} />, "UPI", "GPay, PhonePe, Paytm via secure checkout")}
+              {opt("card", <CreditCard size={18} />, "Credit / debit card", "Visa, Mastercard and RuPay via secure checkout")}
               {allowCod && opt("cod", <Banknote size={18} />, codLabel, "Pay in cash or UPI on arrival")}
             </div>
 
@@ -138,7 +164,7 @@ function PaymentSheetBody({
             <button onClick={pay} disabled={phase === "busy"} className="btn btn-dark mt-5 h-14 w-full text-base">
               {phase === "busy" ? <><Loader2 size={18} className="animate-spin" /> Processing…</> : method === "cod" ? "Confirm" : `Pay ${inr(amount)}`}
             </button>
-            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-ink/45"><ShieldCheck size={13} className="shrink-0" /> Secured by the gowayy sandbox gateway · no real money is charged</p>
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-ink/45"><ShieldCheck size={13} className="shrink-0" /> Online payment details are handled by Razorpay secure checkout</p>
           </>
         )}
       </div>

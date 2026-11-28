@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Check, Gauge, Star, Users, CalendarRange } from "lucide-react";
 import { db } from "@/db";
 import { locations, packages } from "@/db/schema";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TourPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [p] = await db.select().from(packages).where(eq(packages.slug, slug)).limit(1);
+  const [p] = await db.select().from(packages).where(and(eq(packages.slug, slug),eq(packages.active,true))).limit(1);
   if (!p) notFound();
   const dm = await getDestMap();
   const names = Object.fromEntries(dm.list.map((x) => [x.id, x.name]));

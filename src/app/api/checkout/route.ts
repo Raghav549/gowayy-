@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { cartItems, coupons, orderEvents, orderItems, orders, products, users, vendors } from "@/db/schema";
-import { body, fail, ok, needUser, rider } from "@/lib/api";
-import { charge, refundToWallet, type PayInput } from "@/lib/payments";
+import { body, fail, ok, needUser } from "@/lib/api";
+import { charge, refundPayment, type PayInput } from "@/lib/payments";
 import { couponDiscount, FREE_DELIVERY_ABOVE } from "@/lib/pricing";
 import { notify } from "@/lib/services";
 import { makeCode } from "@/lib/utils";
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     .innerJoin(vendors, eq(vendors.id, products.vendorId))
     .where(eq(cartItems.userId, u.id));
   if (!rows.length) return fail("Your bag is empty");
-  if (rows.some((r) => !r.p.available)) return fail("Some items are unavailable — please review your bag");
+  if (rows.some((r) => !r.p.available || r.p.stock < r.qty)) return fail("Some items are sold out or do not have enough stock — please review your bag");
 
   const groups = new Map<number, typeof rows>();
   for (const r of rows) groups.set(r.v.id, [...(groups.get(r.v.id) ?? []), r]);
@@ -56,30 +56,42 @@ export async function POST(req: Request) {
   const input = (b.payment ?? { method: "wallet" }) as PayInput;
   const pay = await charge({ userId: u.id, amount: grand, input, kind: "order", refCode: plans.map((p) => p.code).join(","), allowCod: true });
   if (!pay.ok) return fail(pay.error, 402);
+  if (pay.status === "requires_action") return ok({ payment: pay.gateway });
 
   try {
-    for (let i = 0; i < plans.length; i++) {
-      const p = plans[i];
-      const r = rider();
-      const [o] = await db
-        .insert(orders)
-        .values({
-          code: p.code, userId: u.id, vendorId: p.v.id, kind: p.v.kind, status: "placed", subtotal: p.subtotal, deliveryFee: p.fee,
-          discount: p.discount, total: totals[i], address, note: String(b.note ?? "").slice(0, 200), couponCode,
-          paymentMethod: pay.method, paymentStatus: pay.status, riderName: r.name, riderPhone: r.phone,
-        })
-        .returning();
-      await db.insert(orderItems).values(
-        p.items.map((it) => ({ orderId: o.id, productId: it.p.id, name: it.p.name, emoji: it.p.emoji, image: it.p.image, price: it.p.price, qty: it.qty })),
-      );
-      await db.insert(orderEvents).values({ orderId: o.id, status: "placed", note: "We've sent your order to the store." });
-      await notify(u.id, `Order ${p.code} placed`, `${p.v.name} · ₹${totals[i]} · arriving in ~${p.v.etaMins} min`, "order", `/orders/${p.code}`);
-    }
-    await db.delete(cartItems).where(eq(cartItems.userId, u.id));
-    if (!u.address) await db.update(users).set({ address }).where(eq(users.id, u.id));
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < plans.length; i++) {
+        const p = plans[i];
+        // Stock is decremented in the same transaction as the order. The
+        // conditional update prevents two simultaneous checkouts overselling.
+        for (const item of p.items) {
+          const reserved = await tx
+            .update(products)
+            .set({ stock: sql`${products.stock} - ${item.qty}` })
+            .where(and(eq(products.id, item.p.id), eq(products.available, true), gte(products.stock, item.qty)))
+            .returning({ id: products.id });
+          if (!reserved.length) throw new Error(`${item.p.name} just sold out`);
+        }
+        const [o] = await tx
+          .insert(orders)
+          .values({
+            code: p.code, userId: u.id, vendorId: p.v.id, kind: p.v.kind, status: "placed", subtotal: p.subtotal, deliveryFee: p.fee,
+            discount: p.discount, total: totals[i], address, note: String(b.note ?? "").slice(0, 200), couponCode,
+            paymentMethod: pay.method, paymentStatus: pay.status, autoProgress: false, riderName: "", riderPhone: "",
+          })
+          .returning();
+        await tx.insert(orderItems).values(
+          p.items.map((it) => ({ orderId: o.id, productId: it.p.id, name: it.p.name, emoji: it.p.emoji, image: it.p.image, price: it.p.price, qty: it.qty })),
+        );
+        await tx.insert(orderEvents).values({ orderId: o.id, status: "placed", note: "Sent to the store for acceptance." });
+      }
+      await tx.delete(cartItems).where(eq(cartItems.userId, u.id));
+      if (!u.address) await tx.update(users).set({ address }).where(eq(users.id, u.id));
+    });
+    await Promise.all(plans.map((p, i) => notify(u.id, `Order ${p.code} placed`, `${p.v.name} · ₹${totals[i]} · waiting for store acceptance`, "order", `/orders/${p.code}`)));
   } catch (e) {
-    if (pay.status === "paid") await refundToWallet(u.id, grand, plans[0].code);
-    throw e;
+    if (pay.status === "paid") await refundPayment(u.id, grand, plans[0].code, pay.method, pay.txnId);
+    return fail(e instanceof Error ? e.message : "Could not reserve stock", 409);
   }
   return ok({ codes: plans.map((p) => p.code), redirect: plans.length === 1 ? `/orders/${plans[0].code}` : "/orders" });
 }
