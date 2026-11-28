@@ -8,7 +8,7 @@ def normalizeUrl = { Object raw ->
     if (!value.endsWith("/")) value += "/"
     return value
 }
-def customerUrl = normalizeUrl(project.findProperty("customerUrl") ?: project.findProperty("appUrl") ?: "https://gowayydlng.vercel.app/")
+def customerUrl = normalizeUrl(project.findProperty("customerUrl") ?: project.findProperty("appUrl") ?: "https://gowayy.vercel.app/")
 def businessUrl = normalizeUrl(project.findProperty("businessUrl") ?: "https://gowayy-business.vercel.app/")
 def adminUrl = normalizeUrl(project.findProperty("adminUrl") ?: "https://gowayy-admin.vercel.app/")
 
